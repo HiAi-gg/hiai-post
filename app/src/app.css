@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: oklch(0.65 0.2 260);
+  --color-primary-foreground: oklch(0.98 0.01 260);
+  --color-secondary: oklch(0.92 0.02 260);
+  --color-secondary-foreground: oklch(0.2 0.02 260);
+  --color-accent: oklch(0.65 0.22 320);
+  --color-muted: oklch(0.95 0.01 260);
+  --color-muted-foreground: oklch(0.5 0.02 260);
+  --color-destructive: oklch(0.6 0.22 25);
+  --color-border: oklch(0.88 0.02 260);
+  --color-ring: oklch(0.65 0.2 260);
+  --color-background: oklch(0.99 0.005 260);
+  --color-foreground: oklch(0.15 0.02 260);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.15 0.02 260);
+  --radius: 0.625rem;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: oklch(0.14 0.02 260);
+    --color-foreground: oklch(0.95 0.01 260);
+    --color-card: oklch(0.18 0.02 260);
+    --color-card-foreground: oklch(0.95 0.01 260);
+    --color-muted: oklch(0.22 0.02 260);
+    --color-muted-foreground: oklch(0.6 0.02 260);
+    --color-border: oklch(0.28 0.02 260);
+    --color-secondary: oklch(0.22 0.02 260);
+    --color-secondary-foreground: oklch(0.9 0.01 260);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
