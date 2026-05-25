@@ -1,0 +1,19 @@
+{
+  "name": "hiai-post",
+  "private": true,
+  "type": "module",
+  "workspaces": ["backend", "app"],
+  "scripts": {
+    "dev": "bun run --parallel dev:api dev:frontend",
+    "dev:api": "cd backend && bun run dev",
+    "dev:frontend": "cd app && bun run dev",
+    "build": "bun run --filter '*' build",
+    "lint": "bun run --filter '*' lint",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun test",
+    "db:generate": "cd backend && bun run db:generate",
+    "db:migrate": "cd backend && bun run db:migrate",
+    "db:push": "cd backend && bun run db:push",
+    "db:seed": "cd backend && bun run db:seed"
+  }
+}
