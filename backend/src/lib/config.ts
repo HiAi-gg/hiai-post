@@ -8,6 +8,12 @@ const configSchema = z.object({
   // Auth
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().default('http://localhost:50300'),
+  OAUTH_STATE_SECRET: z.string().optional(),
+
+  // Cross-service auth bridge (INT-POST): shared HS256 secret that hiai-admin
+  // signs proxy tokens with. Optional — when set, the auth middleware accepts
+  // admin-minted HS256 JWTs in addition to Better Auth session tokens.
+  HIAI_ADMIN_JWT_SECRET: z.string().optional(),
 
   // Encryption
   TOKEN_ENCRYPTION_KEY: z.string().min(32),
@@ -21,12 +27,14 @@ const configSchema = z.object({
   X_CLIENT_SECRET: z.string().default(''),
   LINKEDIN_CLIENT_ID: z.string().default(''),
   LINKEDIN_CLIENT_SECRET: z.string().default(''),
-  FACEBOOK_APP_ID: z.string().default(''),
-  FACEBOOK_APP_SECRET: z.string().default(''),
+  META_APP_ID: z.string().default(''),
+  META_APP_SECRET: z.string().default(''),
   THREADS_APP_ID: z.string().default(""),
   THREADS_APP_SECRET: z.string().default(""),
   PINTEREST_APP_ID: z.string().default(""),
   PINTEREST_APP_SECRET: z.string().default(""),
+  YOUTUBE_CLIENT_ID: z.string().default(''),
+  YOUTUBE_CLIENT_SECRET: z.string().default(''),
   TELEGRAM_BOT_TOKEN: z.string().default(''),
 
   // Mastra / LLM
