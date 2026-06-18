@@ -1,5 +1,11 @@
 <script lang="ts">
-  let { data = [] as Array<{ date: string; value: number }>, label = 'Value', color = 'oklch(0.65 0.2 260)' } = $props();
+  /**
+   * The default bar color is sourced from the CSS custom property
+   * `--chart-1` defined in `app.css` (which itself falls back to
+   * the active theme's `--ring` token). Consumers can pass any
+   * CSS color string via the `color` prop.
+   */
+  let { data = [] as Array<{ date: string; value: number }>, label = 'Value', color = 'var(--chart-1)' } = $props();
 
   const max = $derived(Math.max(...data.map(d => d.value), 1));
 </script>

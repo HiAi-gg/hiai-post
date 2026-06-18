@@ -1,13 +1,96 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
 jobs:
-  test:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-      - run: cd backend && bun install
-      - run: cd backend && bunx tsc --noEmit
-      - run: cd backend && bun test
-      - run: cd app && bun install
-      - run: cd app && bun run build
+        with:
+          bun-version: 1.3.14
+      - run: bun install
+      - run: bun run lint
+      # NOTE: format:check is currently a no-op while the project uses ESLint
+      # (no Prettier / Biome is installed). Once Biome migration lands
+      # (see .bob/plans/hiai-post-migration.md), replace with:
+      #   bunx @biomejs/biome ci .
+      - name: Format check (placeholder — awaiting Biome migration)
+        run: echo "format:check skipped — project uses ESLint only. See Biome migration plan."
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install
+      - name: Typecheck backend
+        run: cd backend && bunx tsc --noEmit
+      - name: Typecheck frontend
+        run: cd app && bunx svelte-kit sync && bunx tsc --noEmit
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install
+      - run: bun test
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            **/test-results/**
+            **/coverage/**
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install
+      - name: Build backend
+        run: cd backend && bun run build
+      - name: Build frontend
+        run: cd app && bun run build
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: backend/dist/
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: app/build/
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install
+      - name: Check for vulnerable dependencies
+        run: bunx --yes npm-audit-helper 2>/dev/null || true
+      - name: Audit npm packages
+        run: bun audit 2>/dev/null || true

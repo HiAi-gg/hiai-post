@@ -1,5 +1,30 @@
 # hiai-post — Agent Operating Instructions
 
+## 📍 Источник правды экосистемы (читать первым)
+
+Этот проект — часть экосистемы HiAi. **Общая правда живёт в корне `projects/`:**
+
+- [`../HIAI_CONVENTIONS.md`](../HIAI_CONVENTIONS.md) — правила, топология, дизайн-токены, plugin-контракт.
+- [`../HIAI_ECOSYSTEM_UNIFICATION_PLAN.md`](../HIAI_ECOSYSTEM_UNIFICATION_PLAN.md) — программа унификации (U0–U5).
+- [`../../packages/hiai-ui/README.md`](../../packages/hiai-ui/README.md) — **@hiai/ui**: контракт потребления (токены/примитивы/композиты); план — [`../HIAI_UI_PACKAGE_PLAN.md`](../HIAI_UI_PACKAGE_PLAN.md).
+- [`../HIAI_PROJECTS_ROADMAP.md`](../HIAI_PROJECTS_ROADMAP.md) — **план проекта (раздел «hiai-post», фазы P0–P3)**.
+
+**Роль:** модуль постинга/соцсетей, подключается в `hiai-admin` (:50300). Манифест админки обновлён
+до v1.0.0 (`comingSoon` снят) — Phase 11.
+**Что дальше:** **P3.2 — per-tenant proxy forwarding (X-Tenant-Id header)** в `hiai-admin` proxy
+(заблокировано до фикса proxy в админке). F1–F4 (TipexEditor extraction, Vitest migration,
+DataTable/LayerChart, RBAC + audit) — deferred. Детали — в roadmap.
+
+### Документы проекта (индекс)
+| Документ | Назначение | Статус |
+|---|---|---|
+| `README.md` · `AGENTS.md` (этот) · `todo.md` | обзор · правила · живой статус | core |
+| `SECURITY.md`, `CONTRIBUTING.md` | стандартные | core |
+| `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/PLATFORM_RULES.md` | техсправка | справочное |
+
+> `QUALITY-ASSESSMENT.md` + `SECURITY-AUDIT.md` + `VERIFY.md` поглощены 2026-06-16 в раздел
+> «📚 Поглощённые документы» внизу `todo.md` и удалены; полный текст — в истории git.
+
 ## Identity & Purpose
 
 `hiai-post` is the social media content planning and publishing module for the HiAi platform. Merchants create content plans, generate posts with AI (Mastra), and auto-publish to Instagram, TikTok, X, LinkedIn, Facebook, and Telegram.

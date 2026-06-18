@@ -1,37 +1,30 @@
 @import "tailwindcss";
+@import "@hiai/ui/styles/tokens.css";
 
-@theme {
-  --color-primary: oklch(0.65 0.2 260);
-  --color-primary-foreground: oklch(0.98 0.01 260);
-  --color-secondary: oklch(0.92 0.02 260);
-  --color-secondary-foreground: oklch(0.2 0.02 260);
-  --color-accent: oklch(0.65 0.22 320);
-  --color-muted: oklch(0.95 0.01 260);
-  --color-muted-foreground: oklch(0.5 0.02 260);
-  --color-destructive: oklch(0.6 0.22 25);
-  --color-border: oklch(0.88 0.02 260);
-  --color-ring: oklch(0.65 0.2 260);
-  --color-background: oklch(0.99 0.005 260);
-  --color-foreground: oklch(0.15 0.02 260);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.15 0.02 260);
+/* Map @hiai/ui tokens (--background, --primary, etc.) to Tailwind v4 color
+   utilities (bg-card, text-muted-foreground, etc.) used throughout the app. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --radius: 0.625rem;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: oklch(0.14 0.02 260);
-    --color-foreground: oklch(0.95 0.01 260);
-    --color-card: oklch(0.18 0.02 260);
-    --color-card-foreground: oklch(0.95 0.01 260);
-    --color-muted: oklch(0.22 0.02 260);
-    --color-muted-foreground: oklch(0.6 0.02 260);
-    --color-border: oklch(0.28 0.02 260);
-    --color-secondary: oklch(0.22 0.02 260);
-    --color-secondary-foreground: oklch(0.9 0.01 260);
-  }
 }
 
 * { box-sizing: border-box; }
@@ -41,6 +34,36 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Platform brand colors (NOT design tokens — platform brand identity).
+   Sourced from src/lib/platform-brand-colors.ts. */
+:root {
+  --platform-instagram: #E1306C;
+  --platform-tiktok: #000000;
+  --platform-x: #1DA1F2;
+  --platform-x-post: #1DA1F2;
+  --platform-threads: #000000;
+  --platform-linkedin: #0A66C2;
+  --platform-facebook: #1877F2;
+  --platform-telegram: #2AABEE;
+  --platform-pinterest: #BD081C;
+  --platform-youtube-shorts: #FF0000;
+  --platform-youtube-long: #FF0000;
+  --platform-fallback: #888888;
+
+  /* Logo palette variants used by cards/avatars */
+  --platform-logo-instagram: #E4405F;
+  --platform-logo-telegram: #26A5E4;
+  --platform-logo-pinterest: #E60023;
+
+  /* Chart palette — derived from the brand `ring` token so charts follow
+     the active theme. Override per-chart via the `color` prop. */
+  --chart-1: var(--ring);
+  --chart-2: oklch(0.65 0.2 260);
+  --chart-3: oklch(0.65 0.2 145);
+  --chart-4: oklch(0.65 0.2 30);
+  --chart-5: oklch(0.65 0.2 320);
 }
 
 @media (prefers-reduced-motion: reduce) {

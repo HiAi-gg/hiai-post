@@ -1,4 +1,36 @@
-import { describe, it, expect, beforeAll } from 'bun:test';
+import { describe, it, expect, beforeAll, mock } from 'bun:test';
+
+mock.module('../lib/config.js', () => ({
+  config: {
+    DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+    BETTER_AUTH_SECRET: 'test-secret-key-min-32-characters-long',
+    TOKEN_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    MINIO_SECRET_KEY: 'test-minio-secret',
+    NODE_ENV: 'test',
+  },
+  getConfig: () => ({
+    DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+    BETTER_AUTH_SECRET: 'test-secret-key-min-32-characters-long',
+    TOKEN_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    MINIO_SECRET_KEY: 'test-minio-secret',
+    NODE_ENV: 'test',
+  }),
+}));
+
+mock.module('../lib/logger.js', () => {
+  const childLogger = { warn: () => {}, error: () => {}, info: () => {} };
+  const pinoLogger = {
+    child: () => childLogger,
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {},
+  };
+  return {
+    logger: pinoLogger,
+    getLogger: () => pinoLogger,
+  };
+});
 
 // Set required env vars before importing config-dependent modules
 beforeAll(() => {

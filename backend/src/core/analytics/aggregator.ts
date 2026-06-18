@@ -5,6 +5,13 @@
 import { db } from '../../db/index.js';
 import { posts, postAnalytics } from '../../db/schema.js';
 import { eq, and, sql, gte, lte } from 'drizzle-orm';
+import { fetchInstagramInsights } from './instagram-analytics.js';
+import { fetchXAnalytics } from './x-analytics.js';
+import { fetchLinkedInAnalytics } from './linkedin-analytics.js';
+import type { PostAnalytics as IGPostAnalytics } from './instagram-analytics.js';
+import { decryptToken } from '../../lib/encryption.js';
+
+export type PostAnalyticsData = IGPostAnalytics & { postId: string };
 
 export interface OverviewMetrics {
   totalPosts: number;
@@ -45,6 +52,17 @@ export interface PostPerformance {
   likes: number;
   comments: number;
   shares: number;
+}
+
+interface SocialAccountStub {
+  platform: string;
+  accessTokenEncrypted: string | null;
+}
+
+interface PostStub {
+  id: string;
+  platform: string | null;
+  platformPostId: string | null;
 }
 
 /**
@@ -312,4 +330,58 @@ export async function getBestTimes(
     avgEngagement: Math.round(r.avgEngagement * 100) / 100,
     postCount: r.postCount,
   }));
+}
+
+/**
+ * Collect analytics for a single post/account pair by dispatching
+ * to the appropriate per-platform analytics client.
+ * Returns the analytics data or null if the platform is unsupported or fetch fails.
+ */
+export async function collectAnalyticsForAccount(
+  account: SocialAccountStub,
+  post: PostStub,
+): Promise<PostAnalyticsData | null> {
+  if (!post.platformPostId || !account.accessTokenEncrypted) {
+    return null;
+  }
+
+  const platform = post.platform || account.platform;
+  const accessToken = decryptToken(account.accessTokenEncrypted);
+
+  try {
+    switch (platform) {
+      case 'instagram': {
+        const result = await fetchInstagramInsights(
+          post.platformPostId,
+          accessToken,
+        );
+        if (!result) return null;
+        return { ...result, postId: post.id };
+      }
+
+      case 'x': {
+        const result = await fetchXAnalytics(
+          post.platformPostId,
+          accessToken,
+        );
+        if (!result) return null;
+        return { ...result, postId: post.id };
+      }
+
+      case 'linkedin': {
+        const result = await fetchLinkedInAnalytics(
+          post.platformPostId,
+          accessToken,
+        );
+        if (!result) return null;
+        return { ...result, postId: post.id };
+      }
+
+      default:
+        // Generic fallback — no platform-specific client exists
+        return null;
+    }
+  } catch (error) {
+    return null;
+  }
 }

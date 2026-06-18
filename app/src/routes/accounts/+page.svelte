@@ -1,16 +1,17 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import { platformLogoColors } from '$lib/platform-brand-colors';
 
   let { data }: { data: PageData } = $props();
 
   const PLATFORMS = [
-    { id: 'instagram', name: 'Instagram', color: '#E4405F' },
-    { id: 'tiktok', name: 'TikTok', color: '#000000' },
-    { id: 'x', name: 'X (Twitter)', color: '#1DA1F2' },
-    { id: 'linkedin', name: 'LinkedIn', color: '#0A66C2' },
-    { id: 'facebook', name: 'Facebook', color: '#1877F2' },
-    { id: 'telegram', name: 'Telegram', color: '#26A5E4' },
-  ];
+    { id: 'instagram', name: 'Instagram' },
+    { id: 'tiktok', name: 'TikTok' },
+    { id: 'x', name: 'X (Twitter)' },
+    { id: 'linkedin', name: 'LinkedIn' },
+    { id: 'facebook', name: 'Facebook' },
+    { id: 'telegram', name: 'Telegram' },
+  ] as const;
 
   function isConnected(platformId: string) {
     return data.accounts.some((a: any) => a.platform === platformId);
@@ -42,7 +43,7 @@
     {#each PLATFORMS as p}
       {@const account = data.accounts.find((a: any) => a.platform === p.id)}
       <div class="bg-card border border-border rounded-lg p-5 flex items-center gap-4">
-        <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shrink-0" style:background={p.color}>
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shrink-0" style:background={platformLogoColors[p.id]}>
           {p.name[0]}
         </div>
         <div class="flex-1 min-w-0">

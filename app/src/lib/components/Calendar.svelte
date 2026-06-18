@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { platformBrandColors, platformFallbackColor } from '../platform-brand-colors';
 
   interface Post {
     id: string;
@@ -17,14 +18,7 @@
   let dragTarget = $state<string | null>(null);
   let dragOver = $state<string | null>(null);
 
-  const platformColors: Record<string, string> = {
-    instagram: '#E1306C',
-    tiktok: '#000000',
-    x: '#1DA1F2',
-    linkedin: '#0A66C2',
-    facebook: '#1877F2',
-    telegram: '#0088CC',
-  };
+  const platformColors: Record<string, string> = platformBrandColors;
 
   const platformIcons: Record<string, string> = {
     instagram: '📸',
@@ -138,11 +132,7 @@
       {@const isCurrentMonth = date.getMonth() === currentDate.getMonth()}
       {@const isDropTarget = dragOver === dateStr}
       <div
-        class="min-h-[100px] p-1.5 border-r border-b border-border last:border-r-0 cursor-pointer transition-colors hover:bg-muted/50"
-        class:opacity-40={!isCurrentMonth}
-        class:bg-primary/5={isDropTarget}
-        class:ring-2={isDropTarget}
-        class:ring-primary={isDropTarget}
+        class="min-h-[100px] p-1.5 border-r border-b border-border last:border-r-0 cursor-pointer transition-colors hover:bg-muted/50 {isDropTarget ? 'bg-primary/5 ring-2 ring-primary' : ''} {!isCurrentMonth ? 'opacity-40' : ''}"
         role="gridcell"
         ondragover={(e) => handleDragOver(e, dateStr)}
         ondrop={(e) => handleDrop(e, dateStr)}
@@ -159,7 +149,7 @@
         </div>
         <div class="space-y-0.5">
           {#each dayPosts.slice(0, 3) as post}
-            {@const color = platformColors[post.platform] || '#888'}
+            {@const color = platformColors[post.platform] || platformFallbackColor}
             <div
               class="text-xs rounded px-1.5 py-0.5 truncate cursor-grab active:cursor-grabbing border-l-2 hover:opacity-80 transition-opacity {statusStyles[post.status] || ''}"
               style="border-left-color: {color}; background-color: {color}15;"

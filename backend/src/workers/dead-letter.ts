@@ -1,16 +1,22 @@
 import { logger } from '../lib/logger.js';
 import { db } from '../lib/db.js';
 import { posts } from '../db/schema.js';
-import { eq, and, lt, sql } from 'drizzle-orm';
+import { eq, and, lt, sql, like } from 'drizzle-orm';
 
 const log = logger.child({ module: 'dead-letter' });
 
 const PROCESS_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 60_000; // 1 minute
+const LEGACY_RETRY_PATTERN = /^retry:\d+:/;
+let migrationRan = false;
 
 export function startDeadLetterProcessor(): void {
   log.info('Starting dead-letter queue processor');
+
+  migrateLegacyRetryInfo().catch((err) =>
+    log.error({ error: String(err) }, 'Legacy retry-info migration failed'),
+  );
 
   setInterval(async () => {
     try {
@@ -91,4 +97,33 @@ function parseRetryInfo(errorMessage: string | null): { count: number; lastError
 
   // Plain error message (first failure)
   return { count: 0, lastError: errorMessage };
+}
+
+export async function migrateLegacyRetryInfo(): Promise<{ migrated: number }> {
+  if (migrationRan) return { migrated: 0 };
+  migrationRan = true;
+
+  const candidates = await db
+    .select({ id: posts.id, errorMessage: posts.errorMessage })
+    .from(posts)
+    .where(and(eq(posts.status, 'failed'), like(posts.errorMessage, 'retry:%')))
+    .limit(500);
+
+  let migrated = 0;
+  for (const row of candidates) {
+    if (!row.errorMessage || !LEGACY_RETRY_PATTERN.test(row.errorMessage)) continue;
+    const info = parseRetryInfo(row.errorMessage);
+    const next = JSON.stringify({ retryCount: info.count, lastError: info.lastError });
+    if (next === row.errorMessage) continue;
+    await db
+      .update(posts)
+      .set({ errorMessage: next, updatedAt: new Date() })
+      .where(eq(posts.id, row.id));
+    migrated++;
+  }
+
+  if (migrated > 0) {
+    log.info({ migrated }, 'Migrated legacy retry:N:... error messages to JSON format');
+  }
+  return { migrated };
 }

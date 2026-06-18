@@ -116,7 +116,25 @@
 </div>
 
 <style>
+  /* Syntax-highlighting palette — content-specific, intentionally
+     hardcoded by design (a high-contrast "dark editor" theme). Defined
+     as scoped CSS custom properties on `.tipex-wrapper` so the values
+     are centralized and easy to retune without touching individual
+     selectors. */
   .tipex-wrapper {
+    --hl-keyword: #c792ea;
+    --hl-string: #c3e88d;
+    --hl-number: #f78c6c;
+    --hl-function: #82aaff;
+    --hl-title: #82aaff;
+    --hl-comment: #676e95;
+    --hl-built_in: #ffcb6b;
+    --hl-type: #ffcb6b;
+    --hl-attr: #ffcb6b;
+    --hl-variable: #f07178;
+    --hl-literal: #ff5370;
+    --hl-mark-bg: #fde68a;
+
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -219,40 +237,41 @@
     color: inherit;
   }
 
-  /* lowlight syntax highlighting */
+  /* lowlight syntax highlighting — values from the .tipex-wrapper
+     --hl-* custom properties above. */
   .editor-content :global(.tiptap pre .hljs-keyword) {
-    color: #c792ea;
+    color: var(--hl-keyword);
   }
   .editor-content :global(.tiptap pre .hljs-string) {
-    color: #c3e88d;
+    color: var(--hl-string);
   }
   .editor-content :global(.tiptap pre .hljs-number) {
-    color: #f78c6c;
+    color: var(--hl-number);
   }
   .editor-content :global(.tiptap pre .hljs-function) {
-    color: #82aaff;
+    color: var(--hl-function);
   }
   .editor-content :global(.tiptap pre .hljs-title) {
-    color: #82aaff;
+    color: var(--hl-title);
   }
   .editor-content :global(.tiptap pre .hljs-comment) {
-    color: #676e95;
+    color: var(--hl-comment);
     font-style: italic;
   }
   .editor-content :global(.tiptap pre .hljs-built_in) {
-    color: #ffcb6b;
+    color: var(--hl-built_in);
   }
   .editor-content :global(.tiptap pre .hljs-type) {
-    color: #ffcb6b;
+    color: var(--hl-type);
   }
   .editor-content :global(.tiptap pre .hljs-attr) {
-    color: #ffcb6b;
+    color: var(--hl-attr);
   }
   .editor-content :global(.tiptap pre .hljs-variable) {
-    color: #f07178;
+    color: var(--hl-variable);
   }
   .editor-content :global(.tiptap pre .hljs-literal) {
-    color: #ff5370;
+    color: var(--hl-literal);
   }
 
   .editor-content :global(.tiptap hr) {
@@ -268,7 +287,7 @@
   }
 
   .editor-content :global(.tiptap mark) {
-    background-color: #fde68a;
+    background-color: var(--hl-mark-bg);
     border-radius: 2px;
     padding: 0 2px;
   }

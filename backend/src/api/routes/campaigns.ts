@@ -1,11 +1,16 @@
 import { Elysia } from 'elysia';
 import { db } from '../../lib/db.js';
-import { campaigns, contentPlans } from '../../db/schema.js';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { campaigns, contentPlans, posts } from '../../db/schema.js';
+import { eq, and, desc, sql, inArray, gt } from 'drizzle-orm';
 import { tenantMiddleware } from '../middleware/tenant.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimiter.js';
-import { createCampaignSchema, paginationSchema } from '../validation/schemas.js';
+import {
+  createCampaignSchema,
+  paginationSchema,
+  bulkScheduleCampaignSchema,
+} from '../validation/schemas.js';
+import { enqueuePost, removeQueuedPost } from '../../lib/redis.js';
 import { logger } from '../../lib/logger.js';
 
 const log = logger.child({ module: 'campaigns-route' });
@@ -56,6 +61,197 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
       .where(eq(contentPlans.campaignId, campaign.id));
 
     return { campaign, contentPlans: plans };
+  })
+  // Get campaign progress
+  .get('/:id/progress', async ({ params, tenantId, set }: any) => {
+    const [campaign] = await db
+      .select()
+      .from(campaigns)
+      .where(and(eq(campaigns.id, params.id), eq(campaigns.tenantId, tenantId)))
+      .limit(1);
+
+    if (!campaign) {
+      set.status = 404;
+      return { error: 'Campaign not found' };
+    }
+
+    const planStatuses = await db
+      .select({ status: posts.status })
+      .from(contentPlans)
+      .leftJoin(posts, eq(contentPlans.postId, posts.id))
+      .where(
+        and(
+          eq(contentPlans.campaignId, params.id),
+          eq(contentPlans.tenantId, tenantId),
+        ),
+      );
+
+    const published = planStatuses.filter((p) => p.status === 'published').length;
+    const scheduled = planStatuses.filter((p) => p.status === 'scheduled').length;
+    const failed = planStatuses.filter((p) => p.status === 'failed').length;
+    const total = planStatuses.length;
+    const remaining = total - published - failed;
+
+    return { published, scheduled, failed, remaining, total };
+  })
+  // Pause campaign — sets status to paused, removes scheduled posts from queue
+  .post('/:id/pause', async ({ params, tenantId, set }: any) => {
+    const [campaign] = await db
+      .select()
+      .from(campaigns)
+      .where(and(eq(campaigns.id, params.id), eq(campaigns.tenantId, tenantId)))
+      .limit(1);
+
+    if (!campaign) {
+      set.status = 404;
+      return { error: 'Campaign not found' };
+    }
+
+    if (campaign.status !== 'active') {
+      set.status = 400;
+      return { error: 'Only active campaigns can be paused' };
+    }
+
+    // Find all scheduled posts linked to this campaign
+    const planPostIds = await db
+      .select({ postId: contentPlans.postId })
+      .from(contentPlans)
+      .where(
+        and(
+          eq(contentPlans.campaignId, params.id),
+          eq(contentPlans.tenantId, tenantId),
+        ),
+      );
+
+    const postIds = planPostIds
+      .map((p) => p.postId)
+      .filter(Boolean) as string[];
+
+    if (postIds.length > 0) {
+      const scheduledPosts = await db
+      .select({ id: posts.id })
+      .from(posts)
+      .where(and(inArray(posts.id, postIds), eq(posts.status, 'scheduled')));
+
+      for (const post of scheduledPosts) {
+        await removeQueuedPost(tenantId, post.id);
+      }
+    }
+
+    const [updated] = await db
+      .update(campaigns)
+      .set({ status: 'paused', updatedAt: new Date() })
+      .where(eq(campaigns.id, params.id))
+      .returning();
+
+    log.info({ campaignId: params.id }, 'Campaign paused');
+    return { campaign: updated };
+  })
+  // Resume campaign — sets status to active, re-enqueues pending posts
+  .post('/:id/resume', async ({ params, tenantId, set }: any) => {
+    const [campaign] = await db
+      .select()
+      .from(campaigns)
+      .where(and(eq(campaigns.id, params.id), eq(campaigns.tenantId, tenantId)))
+      .limit(1);
+
+    if (!campaign) {
+      set.status = 404;
+      return { error: 'Campaign not found' };
+    }
+
+    if (campaign.status !== 'paused') {
+      set.status = 400;
+      return { error: 'Only paused campaigns can be resumed' };
+    }
+
+    // Find scheduled posts with a future scheduledAt
+    const now = new Date();
+    const postsToEnqueue = await db
+      .select({ postId: posts.id, scheduledAt: posts.scheduledAt })
+      .from(contentPlans)
+      .innerJoin(posts, eq(contentPlans.postId, posts.id))
+      .where(
+        and(
+          eq(contentPlans.campaignId, params.id),
+          eq(contentPlans.tenantId, tenantId),
+          eq(posts.status, 'scheduled'),
+          gt(posts.scheduledAt, now),
+        ),
+      );
+
+    for (const p of postsToEnqueue) {
+      if (p.postId && p.scheduledAt) {
+        await enqueuePost(tenantId, p.postId, p.scheduledAt);
+      }
+    }
+
+    const [updated] = await db
+      .update(campaigns)
+      .set({ status: 'active', updatedAt: new Date() })
+      .where(eq(campaigns.id, params.id))
+      .returning();
+
+    log.info({ campaignId: params.id, reEnqueued: postsToEnqueue.length }, 'Campaign resumed');
+    return { campaign: updated };
+  })
+  // Bulk schedule posts in a campaign at regular intervals
+  .post('/:id/bulk-schedule', async ({ params, body, tenantId, set }: any) => {
+    const input = bulkScheduleCampaignSchema.parse(body);
+
+    const [campaign] = await db
+      .select()
+      .from(campaigns)
+      .where(and(eq(campaigns.id, params.id), eq(campaigns.tenantId, tenantId)))
+      .limit(1);
+
+    if (!campaign) {
+      set.status = 404;
+      return { error: 'Campaign not found' };
+    }
+
+    const startDate = new Date(input.startDate);
+    const createdPlans = [];
+
+    for (let i = 0; i < input.postIds.length; i++) {
+      const scheduleDate = new Date(startDate.getTime() + i * input.intervalMinutes * 60 * 1000);
+      const hours = String(scheduleDate.getHours()).padStart(2, '0');
+      const minutes = String(scheduleDate.getMinutes()).padStart(2, '0');
+
+      const [plan] = await db
+        .insert(contentPlans)
+        .values({
+          tenantId,
+          title: `Scheduled post ${i + 1}`,
+          date: scheduleDate,
+          slotTime: `${hours}:${minutes}`,
+          postId: input.postIds[i],
+          campaignId: params.id,
+          status: 'planned',
+        })
+        .returning();
+
+      createdPlans.push(plan);
+
+      const [updatedPost] = await db
+        .update(posts)
+        .set({
+          scheduledAt: scheduleDate,
+          status: 'scheduled',
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(posts.id, input.postIds[i]), eq(posts.tenantId, tenantId)),
+        )
+        .returning();
+
+      if (updatedPost) {
+        await enqueuePost(tenantId, updatedPost.id, scheduleDate);
+      }
+    }
+
+    set.status = 201;
+    return { plans: createdPlans };
   })
   // Create campaign
   .post('/', async ({ body, tenantId, set }: any) => {

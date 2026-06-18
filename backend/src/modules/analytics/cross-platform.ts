@@ -1,6 +1,7 @@
 import { db } from '../../lib/db.js';
+import { redis } from '../../lib/redis.js';
 import { posts, postAnalytics } from '../../db/schema.js';
-import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, sql } from 'drizzle-orm';
 
 export interface PlatformMetrics {
   platform: string;
@@ -15,16 +16,36 @@ export interface PlatformMetrics {
   topPost: { id: string; content: string | null; likes: number } | null;
 }
 
+const CACHE_TTL_SECONDS = 5 * 60;
+
 export async function getCrossPlatformMetrics(
   tenantId: string,
   startDate?: Date,
   endDate?: Date,
 ): Promise<PlatformMetrics[]> {
   const now = new Date();
-  const from = startDate ?? new Date(now.getTime() - 30 * 86400000); // default 30 days
+  const from = startDate ?? new Date(now.getTime() - 30 * 86400000);
   const to = endDate ?? now;
 
-  // Aggregate post counts per platform
+  const cacheKey = `analytics:cross-platform:${tenantId}:${from.toISOString()}:${to.toISOString()}`;
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached) as PlatformMetrics[];
+    } catch {
+      return getCrossPlatformMetricsUncached(tenantId, from, to, cacheKey);
+    }
+  }
+
+  return getCrossPlatformMetricsUncached(tenantId, from, to, cacheKey);
+}
+
+async function getCrossPlatformMetricsUncached(
+  tenantId: string,
+  from: Date,
+  to: Date,
+  cacheKey: string,
+): Promise<PlatformMetrics[]> {
   const postCounts = await db
     .select({
       platform: posts.platform,
@@ -41,7 +62,6 @@ export async function getCrossPlatformMetrics(
     )
     .groupBy(posts.platform);
 
-  // Aggregate analytics per platform
   const analyticsData = await db
     .select({
       platform: postAnalytics.platform,
@@ -62,33 +82,32 @@ export async function getCrossPlatformMetrics(
     )
     .groupBy(postAnalytics.platform);
 
-  // Get top post per platform
-  const topPosts = await db
-    .select({
-      platform: posts.platform,
-      id: posts.id,
-      content: posts.contentText,
-      likes: sql<number>`coalesce(${postAnalytics.likes}, 0)::int`,
-    })
-    .from(posts)
-    .leftJoin(postAnalytics, eq(posts.id, postAnalytics.postId))
-    .where(
-      and(
-        eq(posts.tenantId, tenantId),
-        gte(posts.createdAt, from),
-        lte(posts.createdAt, to),
-      ),
-    )
-    .orderBy(desc(sql`coalesce(${postAnalytics.likes}, 0)`));
+  const topPostRows = await db.execute<{
+    platform: string;
+    id: string;
+    content: string | null;
+    likes: number;
+  }>(sql`
+    SELECT DISTINCT ON (pa.platform)
+      pa.platform,
+      p.id,
+      p.content_text AS content,
+      pa.likes
+    FROM post_analytics pa
+    INNER JOIN posts p ON pa.post_id = p.id
+    WHERE p.tenant_id = ${tenantId}
+      AND p.created_at >= ${from.toISOString()}
+      AND p.created_at <= ${to.toISOString()}
+    ORDER BY pa.platform, pa.engagement_rate DESC
+  `);
 
   const topPostByPlatform = new Map<string, { id: string; content: string | null; likes: number }>();
-  for (const tp of topPosts) {
+  for (const tp of topPostRows) {
     if (tp.platform && !topPostByPlatform.has(tp.platform)) {
       topPostByPlatform.set(tp.platform, { id: tp.id, content: tp.content, likes: tp.likes });
     }
   }
 
-  // Merge data
   const platformMap = new Map<string, PlatformMetrics>();
 
   for (const pc of postCounts) {
@@ -122,5 +141,9 @@ export async function getCrossPlatformMetrics(
     }
   }
 
-  return [...platformMap.values()].sort((a, b) => b.totalImpressions - a.totalImpressions);
+  const result = [...platformMap.values()].sort((a, b) => b.totalImpressions - a.totalImpressions);
+
+  await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+
+  return result;
 }

@@ -8,6 +8,7 @@ services:
       - "50300:3000"
     env_file: .env
     environment:
+      API_PORT: "3000"
       DATABASE_URL: postgresql://${POSTGRES_USER:-hipost}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/hiai_post
       REDIS_URL: redis://redis:6379
     depends_on:
@@ -17,10 +18,19 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
     networks:
       - hiai-post
 
@@ -39,6 +49,20 @@ services:
       hiai-post-api:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/ || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
     networks:
       - hiai-post
 
@@ -52,13 +76,21 @@ services:
     ports:
       - "5436:5432"
     volumes:
-      - hiai-post-pg:/var/lib/postgresql/data
+      - hiai-post-pg:/var/lib/postgresql
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hipost} -d hiai_post"]
       interval: 10s
       timeout: 5s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
     networks:
       - hiai-post
 
@@ -75,6 +107,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
     networks:
       - hiai-post
 

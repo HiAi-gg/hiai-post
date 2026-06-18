@@ -111,7 +111,7 @@
 
   {:else if platform === 'telegram'}
     <div class="border border-border rounded-lg overflow-hidden max-w-sm bg-[var(--background)]">
-      <div class="bg-[#2AABEE] text-white p-3 rounded-t-lg">
+      <div class="bg-[var(--platform-telegram)] text-white p-3 rounded-t-lg">
         <p class="text-sm font-medium">Your Channel</p>
       </div>
       <div class="p-3">

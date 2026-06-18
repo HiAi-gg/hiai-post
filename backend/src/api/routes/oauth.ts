@@ -7,6 +7,7 @@ import { tenantMiddleware } from '../middleware/tenant.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimiter.js';
 import { encryptToken } from '../../lib/encryption.js';
+import { generateState, validateState } from '../../lib/oauth-state.js';
 import { logger } from '../../lib/logger.js';
 
 const log = logger.child({ module: 'oauth-route' });
@@ -29,8 +30,8 @@ const OAUTH_CONFIGS: Record<string, OAuthConfig> = {
     scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
   },
   x: {
-    authUrl: 'https://twitter.com/i/oauth2/authorize',
-    tokenUrl: 'https://api.twitter.com/2/oauth2/token',
+    authUrl: 'https://x.com/i/oauth2/authorize',
+    tokenUrl: 'https://api.x.com/2/oauth2/token',
     scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
   },
   linkedin: {
@@ -53,17 +54,27 @@ const OAUTH_CONFIGS: Record<string, OAuthConfig> = {
     tokenUrl: 'https://api.pinterest.com/v5/oauth/token',
     scopes: ['boards:read', 'pins:read', 'pins:write'],
   },
+  youtube: {
+    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    scopes: [
+      'https://www.googleapis.com/auth/youtube.upload',
+      'https://www.googleapis.com/auth/youtube.force-ssl',
+      'https://www.googleapis.com/auth/youtube.readonly',
+    ],
+  },
 };
 
 function getClientId(platform: string): string {
   const map: Record<string, string> = {
     instagram: appConfig.INSTAGRAM_APP_ID,
-    facebook: appConfig.FACEBOOK_APP_ID,
+    facebook: appConfig.META_APP_ID,
     x: appConfig.X_CLIENT_ID,
     linkedin: appConfig.LINKEDIN_CLIENT_ID,
     tiktok: appConfig.TIKTOK_CLIENT_KEY,
     threads: appConfig.THREADS_APP_ID || appConfig.INSTAGRAM_APP_ID,
     pinterest: appConfig.PINTEREST_APP_ID,
+    youtube: appConfig.YOUTUBE_CLIENT_ID,
   };
   return map[platform] || '';
 }
@@ -71,12 +82,13 @@ function getClientId(platform: string): string {
 function getClientSecret(platform: string): string {
   const map: Record<string, string> = {
     instagram: appConfig.INSTAGRAM_APP_SECRET,
-    facebook: appConfig.FACEBOOK_APP_SECRET,
+    facebook: appConfig.META_APP_SECRET,
     x: appConfig.X_CLIENT_SECRET,
     linkedin: appConfig.LINKEDIN_CLIENT_SECRET,
     tiktok: appConfig.TIKTOK_CLIENT_SECRET,
     threads: appConfig.THREADS_APP_SECRET || appConfig.INSTAGRAM_APP_SECRET,
     pinterest: appConfig.PINTEREST_APP_SECRET,
+    youtube: appConfig.YOUTUBE_CLIENT_SECRET,
   };
   return map[platform] || '';
 }
@@ -85,8 +97,7 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
   .use(createRateLimiter('authenticated') as any)
   .use(authMiddleware)
   .use(tenantMiddleware)
-  // Start OAuth flow — return authorization URL
-  .get("/:platform/connect", ({ params, set }: any) => {
+  .get("/:platform/connect", async ({ params, set, tenantId }: any) => {
     const platformConfig = OAUTH_CONFIGS[params.platform];
     if (!platformConfig) {
       set.status = 400;
@@ -100,7 +111,10 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
     }
 
     const redirectUri = `${appConfig.BETTER_AUTH_URL}/api/v1/oauth/${params.platform}/callback`;
-    const state = crypto.randomUUID();
+    const { state } = await generateState({
+      platform: params.platform,
+      tenantId,
+    });
 
     const authUrl = new URL(platformConfig.authUrl);
     authUrl.searchParams.set('client_id', clientId);
@@ -109,7 +123,6 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('response_type', 'code');
 
-    // For X/Twitter PKCE
     if (params.platform === 'x') {
       authUrl.searchParams.set('code_challenge', state);
       authUrl.searchParams.set('code_challenge_method', 'plain');
@@ -117,12 +130,35 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
 
     return { authUrl: authUrl.toString(), state };
   })
-  // OAuth callback
   .get('/:platform/callback', async ({ params, query, tenantId, set }: any) => {
     const code = query.code as string;
     if (!code) {
       set.status = 400;
       return { error: 'Missing authorization code' };
+    }
+
+    const stateParam = query.state as string;
+    const statePayload = await validateState(stateParam);
+    if (!statePayload) {
+      log.warn({ platform: params.platform }, 'OAuth callback rejected: invalid state');
+      set.status = 400;
+      return { error: 'Invalid or expired state parameter' };
+    }
+    if (statePayload.platform !== params.platform) {
+      log.warn(
+        { expected: params.platform, got: statePayload.platform },
+        'OAuth callback rejected: state platform mismatch'
+      );
+      set.status = 400;
+      return { error: 'State platform mismatch' };
+    }
+    if (statePayload.tenantId && tenantId && statePayload.tenantId !== tenantId) {
+      log.warn(
+        { stateTenant: statePayload.tenantId, sessionTenant: tenantId },
+        'OAuth callback rejected: tenant mismatch'
+      );
+      set.status = 403;
+      return { error: 'Tenant mismatch' };
     }
 
     const platformConfig = OAUTH_CONFIGS[params.platform];
@@ -153,6 +189,7 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(body),
+        signal: AbortSignal.timeout(10000),
       });
 
       if (!tokenResponse.ok) {
@@ -177,6 +214,7 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
       if (params.platform === 'instagram' || params.platform === 'facebook') {
         const meRes = await fetch(`https://graph.facebook.com/me?fields=id,name,picture`, {
           headers: { Authorization: `Bearer ${accessToken}` },
+          signal: AbortSignal.timeout(10000),
         });
         if (meRes.ok) {
           const me = (await meRes.json()) as Record<string, unknown>;
@@ -184,8 +222,9 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
           displayName = String(me.name || '');
         }
       } else if (params.platform === 'x') {
-        const meRes = await fetch('https://api.twitter.com/2/users/me', {
+        const meRes = await fetch('https://api.x.com/2/users/me', {
           headers: { Authorization: `Bearer ${accessToken}` },
+          signal: AbortSignal.timeout(10000),
         });
         if (meRes.ok) {
           const me = (await meRes.json()) as { data?: Record<string, unknown> };
@@ -196,11 +235,39 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
       } else if (params.platform === 'linkedin') {
         const meRes = await fetch('https://api.linkedin.com/v2/me', {
           headers: { Authorization: `Bearer ${accessToken}` },
+          signal: AbortSignal.timeout(10000),
         });
         if (meRes.ok) {
           const me = (await meRes.json()) as Record<string, unknown>;
           accountId = String(me.id || '');
           displayName = `${me.localizedFirstName || ''} ${me.localizedLastName || ''}`.trim();
+        }
+      } else if (params.platform === 'youtube') {
+        const meRes = await fetch(
+          'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            signal: AbortSignal.timeout(10000),
+          }
+        );
+        if (meRes.ok) {
+          const me = (await meRes.json()) as {
+            items?: Array<{
+              id: string;
+              snippet?: {
+                title?: string;
+                customUrl?: string;
+                thumbnails?: { default?: { url?: string } };
+              };
+            }>;
+          };
+          const channel = me.items?.[0];
+          if (channel) {
+            accountId = channel.id;
+            displayName = String(channel.snippet?.title || '');
+            username = String(channel.snippet?.customUrl || '');
+            avatarUrl = String(channel.snippet?.thumbnails?.default?.url || '');
+          }
         }
       }
 

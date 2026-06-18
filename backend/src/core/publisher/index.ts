@@ -10,6 +10,14 @@ import { publishToFacebook, type FacebookPublishOptions } from './facebook.js';
 import { publishToTelegram, type TelegramPublishOptions } from './telegram.js';
 import { publishToThreads, type ThreadsPublishOptions } from './threads.js';
 import { publishToPinterest, type PinterestPublishOptions } from './pinterest.js';
+import {
+  publishToYouTube,
+  publishToYouTubeLong,
+  publishToYouTubeShorts,
+  type YouTubeLongPublishOptions,
+  type YouTubePublishOptions,
+  type YouTubeShortsPublishOptions,
+} from './youtube.js';
 import { logger } from '../../lib/logger.js';
 
 export type SupportedPlatform =
@@ -20,7 +28,10 @@ export type SupportedPlatform =
   | 'facebook'
   | 'telegram'
   | 'threads'
-  | 'pinterest';
+  | 'pinterest'
+  | 'youtube'
+  | 'youtube-shorts'
+  | 'youtube-long';
 
 export interface PublishRequest {
   platform: SupportedPlatform;
@@ -157,6 +168,72 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         return { ...result, platform };
       }
 
+      case 'youtube': {
+        const result = await publishToYouTube({
+          accessToken: credentials.accessToken,
+          videoUrl: mediaUrl || (options?.videoUrl as string) || '',
+          title: (options?.title as string) || content.slice(0, 100),
+          description: content,
+          tags: options?.tags as string[],
+          categoryId: options?.categoryId as string,
+          privacyStatus: options?.privacyStatus as YouTubePublishOptions['privacyStatus'],
+          madeForKids: options?.madeForKids as boolean,
+          thumbnailUrl: options?.thumbnailUrl as string,
+          durationSeconds: options?.durationSeconds as number,
+          defaultLanguage: options?.defaultLanguage as string,
+          kind: options?.kind as YouTubePublishOptions['kind'],
+        });
+        return {
+          success: result.success,
+          postId: result.videoId,
+          error: result.error,
+          platform,
+        };
+      }
+
+      case 'youtube-shorts': {
+        const result = await publishToYouTubeShorts({
+          accessToken: credentials.accessToken,
+          videoUrl: mediaUrl || (options?.videoUrl as string) || '',
+          title: (options?.title as string) || content.slice(0, 100),
+          description: content,
+          tags: options?.tags as YouTubeShortsPublishOptions['tags'],
+          categoryId: options?.categoryId as YouTubeShortsPublishOptions['categoryId'],
+          privacyStatus: options?.privacyStatus as YouTubeShortsPublishOptions['privacyStatus'],
+          madeForKids: options?.madeForKids as YouTubeShortsPublishOptions['madeForKids'],
+          thumbnailUrl: options?.thumbnailUrl as YouTubeShortsPublishOptions['thumbnailUrl'],
+          durationSeconds: options?.durationSeconds as YouTubeShortsPublishOptions['durationSeconds'],
+          defaultLanguage: options?.defaultLanguage as YouTubeShortsPublishOptions['defaultLanguage'],
+        });
+        return {
+          success: result.success,
+          postId: result.videoId,
+          error: result.error,
+          platform,
+        };
+      }
+
+      case 'youtube-long': {
+        const result = await publishToYouTubeLong({
+          accessToken: credentials.accessToken,
+          videoUrl: mediaUrl || (options?.videoUrl as string) || '',
+          title: (options?.title as string) || content.slice(0, 100),
+          description: content,
+          tags: options?.tags as YouTubeLongPublishOptions['tags'],
+          categoryId: options?.categoryId as YouTubeLongPublishOptions['categoryId'],
+          privacyStatus: options?.privacyStatus as YouTubeLongPublishOptions['privacyStatus'],
+          madeForKids: options?.madeForKids as YouTubeLongPublishOptions['madeForKids'],
+          thumbnailUrl: options?.thumbnailUrl as YouTubeLongPublishOptions['thumbnailUrl'],
+          defaultLanguage: options?.defaultLanguage as YouTubeLongPublishOptions['defaultLanguage'],
+        });
+        return {
+          success: result.success,
+          postId: result.videoId,
+          error: result.error,
+          platform,
+        };
+      }
+
       default:
         return {
           success: false,
@@ -209,6 +286,9 @@ export function getPlatformDisplayName(platform: SupportedPlatform): string {
     telegram: 'Telegram',
     threads: 'Threads',
     pinterest: 'Pinterest',
+    youtube: 'YouTube',
+    'youtube-shorts': 'YouTube Shorts',
+    'youtube-long': 'YouTube Long-form',
   };
   return names[platform] || platform;
 }
@@ -217,5 +297,17 @@ export function getPlatformDisplayName(platform: SupportedPlatform): string {
  * Get all supported platforms.
  */
 export function getSupportedPlatforms(): SupportedPlatform[] {
-  return ['instagram', 'tiktok', 'x', 'linkedin', 'facebook', 'telegram', 'threads', 'pinterest'];
+  return [
+    'instagram',
+    'tiktok',
+    'x',
+    'linkedin',
+    'facebook',
+    'telegram',
+    'threads',
+    'pinterest',
+    'youtube',
+    'youtube-shorts',
+    'youtube-long',
+  ];
 }

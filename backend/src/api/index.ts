@@ -11,6 +11,7 @@ import { campaignsRoutes } from './routes/campaigns.js';
 import { templatesRoutes } from './routes/templates.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { oauthRoutes } from './routes/oauth.js';
+import { youtubeRoutes } from './routes/youtube.js';
 import { generateRoutes } from './routes/generate.js';
 import { queueRoutes } from './routes/queue.js';
 import { eventRoutes } from './routes/events.js';
@@ -19,26 +20,14 @@ import { startDeadLetterProcessor } from '../workers/dead-letter.js';
 import { authMiddleware } from './middleware/auth.js';
 import { tenantMiddleware } from './middleware/tenant.js';
 import { apiLogger } from './middleware/apiLogger.js';
+import { secureHeadersPlugin } from './middleware/secureHeaders.js';
 
 const cfg = getConfig();
 
 // Connect Redis on startup
 await connectRedis();
 
-const app = new Elysia()
-  .use(
-    cors({
-      origin: cfg.NODE_ENV === 'production'
-        ? [cfg.BETTER_AUTH_URL]
-        : true,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id'],
-    })
-  )
-  .use(apiLogger)
-  .use(authMiddleware)
-  .use(tenantMiddleware)
+const errorHandler = new Elysia()
   .onError(({ code, error, set }) => {
     const errMsg = error instanceof Error ? error.message : String(error);
     const errStack = error instanceof Error ? error.stack : undefined;
@@ -55,8 +44,12 @@ const app = new Elysia()
 
     set.status = 500;
     return { error: 'Internal server error' };
-  })
-  .use(healthRoutes)
+  });
+
+const protectedApp = new Elysia()
+  .use(authMiddleware)
+  .use(tenantMiddleware)
+  .use(errorHandler)
   .use(accountsRoutes)
   .use(postsRoutes)
   .use(contentPlansRoutes)
@@ -64,9 +57,27 @@ const app = new Elysia()
   .use(templatesRoutes)
   .use(analyticsRoutes)
   .use(oauthRoutes)
+  .use(youtubeRoutes)
   .use(generateRoutes)
   .use(queueRoutes)
   .use(eventRoutes);
+
+const app = new Elysia()
+  .use(
+    cors({
+      origin: cfg.NODE_ENV === 'production'
+        ? [cfg.BETTER_AUTH_URL]
+        : true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id'],
+    })
+  )
+  .use(secureHeadersPlugin)
+  .use(apiLogger)
+  .use(errorHandler)
+  .use(healthRoutes)
+  .use(protectedApp);
 
 app.listen(cfg.API_PORT, () => {
   logger.info(`hiai-post API running on port ${cfg.API_PORT}`);

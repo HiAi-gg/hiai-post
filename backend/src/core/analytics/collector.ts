@@ -8,6 +8,7 @@ import { posts, postAnalytics, socialAccounts } from '../../db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import { logger } from '../../lib/logger.js';
 import { config } from '../../lib/config.js';
+import { decryptToken } from '../../lib/encryption.js';
 
 interface PlatformMetrics {
   impressions: number;
@@ -66,7 +67,7 @@ async function fetchXMetrics(
 ): Promise<PlatformMetrics | null> {
   try {
     const response = await fetch(
-      `https://api.twitter.com/2/tweets/${tweetId}?tweet.fields=public_metrics`,
+      `https://api.x.com/2/tweets/${tweetId}?tweet.fields=public_metrics`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
         signal: AbortSignal.timeout(10000),
@@ -189,22 +190,23 @@ export async function collectAllMetrics(): Promise<{
 
         if (!account?.accessTokenEncrypted) continue;
 
+        const accessToken = decryptToken(account.accessTokenEncrypted);
         let metrics: PlatformMetrics | null = null;
 
         switch (post.platform) {
           case 'instagram':
             metrics = await fetchInstagramMetrics(
               post.platformPostId,
-              account.accessTokenEncrypted
+              accessToken
             );
             break;
           case 'x':
-            metrics = await fetchXMetrics(post.platformPostId, account.accessTokenEncrypted);
+            metrics = await fetchXMetrics(post.platformPostId, accessToken);
             break;
           case 'linkedin':
             metrics = await fetchLinkedInMetrics(
               post.platformPostId,
-              account.accessTokenEncrypted
+              accessToken
             );
             break;
           // TikTok, Facebook, Telegram: no public metrics API or different pattern

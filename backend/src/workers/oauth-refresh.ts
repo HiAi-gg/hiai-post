@@ -3,6 +3,7 @@ import { db } from '../lib/db.js';
 import { socialAccounts } from '../db/schema.js';
 import { eq, and, lt, isNotNull } from 'drizzle-orm';
 import { decryptToken, encryptToken } from '../lib/encryption.js';
+import { config } from '../lib/config.js';
 
 const log = logger.child({ module: 'oauth-refresh' });
 
@@ -146,7 +147,7 @@ function validateTokenResponse(data: unknown, platform: string): { access_token:
 
 async function refreshMetaToken(refreshToken: string) {
   const res = await fetchWithTimeout(
-    `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.META_APP_ID}&client_secret=${process.env.META_APP_SECRET}&fb_exchange_token=${refreshToken}`,
+    `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${config.META_APP_ID}&client_secret=${config.META_APP_SECRET}&fb_exchange_token=${refreshToken}`,
   );
   if (!res.ok) {
     const body = await res.text();
@@ -163,7 +164,7 @@ async function refreshXTokens(refreshToken: string) {
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: process.env.X_CLIENT_ID!,
+      client_id: config.X_CLIENT_ID,
     }),
   });
   if (!res.ok) {
@@ -181,8 +182,8 @@ async function refreshLinkedInToken(refreshToken: string) {
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: process.env.LINKEDIN_CLIENT_ID!,
-      client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+      client_id: config.LINKEDIN_CLIENT_ID,
+      client_secret: config.LINKEDIN_CLIENT_SECRET,
     }),
   });
   if (!res.ok) {
@@ -200,8 +201,8 @@ async function refreshPinterestToken(refreshToken: string) {
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-      client_id: process.env.PINTEREST_APP_ID!,
-      client_secret: process.env.PINTEREST_APP_SECRET!,
+      client_id: config.PINTEREST_APP_ID,
+      client_secret: config.PINTEREST_APP_SECRET,
     }),
   });
   if (!res.ok) {

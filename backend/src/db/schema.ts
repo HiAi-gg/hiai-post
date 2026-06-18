@@ -32,7 +32,7 @@ export const socialAccounts = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
-    platform: text('platform').notNull(), // instagram/tiktok/x/linkedin/facebook/telegram/threads/pinterest
+    platform: text('platform').notNull(), // instagram/tiktok/x/linkedin/facebook/telegram/threads/pinterest/youtube/youtube-shorts/youtube-long
     accountId: text('account_id').notNull(),
     username: text('username'),
     displayName: text('display_name'),

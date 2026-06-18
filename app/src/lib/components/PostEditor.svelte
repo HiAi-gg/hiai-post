@@ -1,6 +1,7 @@
 <script lang="ts">
   import PlatformPreview from './PlatformPreview.svelte';
-  import { TipexEditor } from '@hiai/ui';
+  import TipexEditor from './editor/TipexEditor.svelte';
+  import { platformBrandColors } from '../platform-brand-colors';
 
   interface Props {
     content?: string;
@@ -35,9 +36,7 @@
   const platformIcons: Record<string, string> = {
     instagram: '📸', tiktok: '🎵', x: '🧵', 'x-post': '𝕏', threads: '🧵', linkedin: '💼', facebook: '📘', telegram: '✈️', pinterest: '📌', 'youtube-shorts': '🎬', 'youtube-long': '▶️',
   };
-  const platformColors: Record<string, string> = {
-    instagram: '#E1306C', tiktok: '#000000', x: '#1DA1F2', 'x-post': '#1DA1F2', threads: '#000000', linkedin: '#0A66C2', facebook: '#1877F2', telegram: '#0088CC', pinterest: '#BD081C', 'youtube-shorts': '#FF0000', 'youtube-long': '#FF0000',
-  };
+  const platformColors: Record<string, string> = platformBrandColors;
 
   const charLimits: Record<string, number> = {
     instagram: 2200, tiktok: 2200, x: 275, 'x-post': 280, threads: 500, linkedin: 3000, facebook: 63206, telegram: 4096, pinterest: 500, 'youtube-shorts': 3000, 'youtube-long': 50000,
@@ -139,7 +138,7 @@
         {#each platforms as p}
           {@const limit = charLimits[p] ?? 2200}
           {@const over = content.length > limit}
-          <span class="text-[10px] px-1.5 py-0.5 rounded capitalize" class:bg-red-500/10={over} class:text-red-500={over} class:text-muted-foreground={!over}>
+          <span class={["text-[10px] px-1.5 py-0.5 rounded capitalize", over && 'bg-red-500/10 text-red-500', !over && 'text-muted-foreground']}>
             {platformIcons[p]} {content.length}/{limit}
           </span>
         {/each}
@@ -152,10 +151,11 @@
 
   <!-- Media Upload -->
   <div
-    class="border-2 border-dashed rounded-lg p-4 text-center transition-colors"
-    class:border-primary={dragActive}
-    class:bg-primary/5={dragActive}
-    class:border-border={!dragActive}
+    class={[
+      "border-2 border-dashed rounded-lg p-4 text-center transition-colors",
+      dragActive && 'border-primary bg-primary/5',
+      !dragActive && 'border-border',
+    ]}
     role="region"
     ondragover={(e) => { e.preventDefault(); dragActive = true; }}
     ondragleave={() => dragActive = false}

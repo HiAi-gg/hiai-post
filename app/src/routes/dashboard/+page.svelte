@@ -2,6 +2,7 @@
   import type { PageData } from './$types';
   import Calendar from '$lib/components/Calendar.svelte';
   import UpcomingPosts from '$lib/components/UpcomingPosts.svelte';
+  import { StatsCard, StatusBadge } from '@hiai/ui';
 
   let { data }: { data: PageData } = $props();
 
@@ -52,28 +53,14 @@
 
   <!-- Stats -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="bg-card rounded-lg border border-border p-4">
-      <p class="text-sm text-muted-foreground">Scheduled</p>
-      <p class="text-3xl font-bold mt-1">{data.queueStatus.pending ?? 0}</p>
-      <p class="text-xs text-muted-foreground mt-1">in queue</p>
-    </div>
-    <div class="bg-card rounded-lg border border-border p-4">
-      <p class="text-sm text-muted-foreground">Published</p>
-      <p class="text-3xl font-bold mt-1">{data.queueStatus.published ?? 0}</p>
-      <p class="text-xs text-muted-foreground mt-1">total</p>
-    </div>
-    <div class="bg-card rounded-lg border border-border p-4">
-      <p class="text-sm text-muted-foreground">Failed</p>
-      <p class="text-3xl font-bold mt-1 {data.queueStatus.failed > 0 ? 'text-destructive' : ''}">
-        {data.queueStatus.failed ?? 0}
-      </p>
-      <p class="text-xs text-muted-foreground mt-1">dead letter</p>
-    </div>
-    <div class="bg-card rounded-lg border border-border p-4">
-      <p class="text-sm text-muted-foreground">Accounts</p>
-      <p class="text-3xl font-bold mt-1">{data.accounts.length}</p>
-      <p class="text-xs text-muted-foreground mt-1">connected</p>
-    </div>
+    <StatsCard label="Scheduled · in queue" value={data.queueStatus.pending ?? 0} accent="info" />
+    <StatsCard label="Published · total" value={data.queueStatus.published ?? 0} accent="success" />
+    <StatsCard
+      label="Failed · dead letter"
+      value={data.queueStatus.failed ?? 0}
+      accent={(data.queueStatus.failed ?? 0) > 0 ? 'danger' : 'primary'}
+    />
+    <StatsCard label="Accounts · connected" value={data.accounts.length} accent="violet" />
   </div>
 
   <!-- Next Scheduled Post -->
@@ -117,18 +104,7 @@
                     {#if post.scheduledAt} · {new Date(post.scheduledAt).toLocaleString()}{/if}
                   </p>
                 </div>
-                <span class="text-xs px-2 py-0.5 rounded-full"
-                  class:bg-green-100={post.status === 'published'}
-                  class:text-green-700={post.status === 'published'}
-                  class:bg-yellow-100={post.status === 'scheduled'}
-                  class:text-yellow-700={post.status === 'scheduled'}
-                  class:bg-red-100={post.status === 'failed'}
-                  class:text-red-700={post.status === 'failed'}
-                  class:bg-gray-100={post.status === 'draft'}
-                  class:text-gray-700={post.status === 'draft'}
-                >
-                  {post.status}
-                </span>
+                <StatusBadge status={post.status} size="sm" />
               </a>
             {/each}
           </div>

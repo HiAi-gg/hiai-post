@@ -1,25 +1,13 @@
 <script lang="ts">
   import '../app.css';
   import { AdminSidebar, AdminHeader, ThemeToggle, sidebarStore } from '@hiai/ui';
+  import { hiaiPostPlugin } from '$lib/plugin';
 
   let { data, children } = $props();
 
   const mode = data?.mode ?? 'standalone';
 
-  const navGroups = [
-    {
-      label: 'Social Media',
-      items: [
-        { label: 'Dashboard', href: '/dashboard', icon: '📊' },
-        { label: 'Accounts', href: '/accounts', icon: '👤' },
-        { label: 'Posts', href: '/posts', icon: '📝' },
-        { label: 'Campaigns', href: '/campaigns', icon: '📢' },
-        { label: 'Content Plans', href: '/content-plans', icon: '📋' },
-        { label: 'Templates', href: '/templates', icon: '📄' },
-        { label: 'Analytics', href: '/analytics', icon: '📈' },
-      ],
-    },
-  ];
+  const navGroups = hiaiPostPlugin.navGroups;
 </script>
 
 <svelte:head>

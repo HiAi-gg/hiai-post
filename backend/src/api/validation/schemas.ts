@@ -23,6 +23,11 @@ export const platformEnum = z.enum([
   'linkedin',
   'facebook',
   'telegram',
+  'threads',
+  'pinterest',
+  'youtube',
+  'youtube-shorts',
+  'youtube-long',
 ]);
 
 // Post status enum
@@ -108,4 +113,11 @@ export const generatePostSchema = z.object({
 export const analyticsDateRangeSchema = z.object({
   from: z.string().datetime(),
   to: z.string().datetime(),
+});
+
+// Bulk schedule posts in a campaign
+export const bulkScheduleCampaignSchema = z.object({
+  postIds: z.array(z.string().uuid()).min(1).max(50),
+  startDate: z.string().datetime(),
+  intervalMinutes: z.number().int().min(1).max(1440),
 });
