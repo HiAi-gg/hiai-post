@@ -2,7 +2,7 @@
  * Facebook publisher — publish posts via Facebook Graph API.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface FacebookPublishOptions {
   accessToken: string;
@@ -28,19 +28,16 @@ async function uploadPhoto(
   imageUrl: string,
   caption: string
 ): Promise<string> {
-  const response = await fetch(
-    `https://graph.facebook.com/v19.0/${pageId}/photos`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        url: imageUrl,
-        caption,
-        access_token: accessToken,
-      }),
-      signal: AbortSignal.timeout(30000),
-    }
-  );
+  const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      url: imageUrl,
+      caption,
+      access_token: accessToken,
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
 
   if (!response.ok) {
     const error = await response.text();
@@ -60,19 +57,16 @@ async function uploadVideo(
   videoUrl: string,
   description: string
 ): Promise<string> {
-  const response = await fetch(
-    `https://graph.facebook.com/v19.0/${pageId}/videos`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        file_url: videoUrl,
-        description,
-        access_token: accessToken,
-      }),
-      signal: AbortSignal.timeout(120000),
-    }
-  );
+  const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/videos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      file_url: videoUrl,
+      description,
+      access_token: accessToken,
+    }),
+    signal: AbortSignal.timeout(120000),
+  });
 
   if (!response.ok) {
     const error = await response.text();
@@ -90,23 +84,17 @@ export async function publishToFacebook(
   options: FacebookPublishOptions
 ): Promise<FacebookPublishResult> {
   try {
-    const { accessToken, pageId, content, mediaUrl, link, scheduledPublishTime } =
-      options;
+    const { accessToken, pageId, content, mediaUrl, link, scheduledPublishTime } = options;
 
     // Video post
-    if (mediaUrl && mediaUrl.match(/\.(mp4|mov|avi|webm)$/i)) {
+    if (mediaUrl?.match(/\.(mp4|mov|avi|webm)$/i)) {
       const videoId = await uploadVideo(pageId, accessToken, mediaUrl, content);
       return { success: true, postId: videoId };
     }
 
     // Photo post
     if (mediaUrl) {
-      const photoId = await uploadPhoto(
-        pageId,
-        accessToken,
-        mediaUrl,
-        content
-      );
+      const photoId = await uploadPhoto(pageId, accessToken, mediaUrl, content);
       return { success: true, postId: photoId };
     }
 
@@ -117,30 +105,24 @@ export async function publishToFacebook(
     });
 
     if (link) {
-      params.append('link', link);
+      params.append("link", link);
     }
 
     if (scheduledPublishTime) {
-      params.append(
-        'scheduled_publish_time',
-        scheduledPublishTime.toString()
-      );
-      params.append('published', 'false');
+      params.append("scheduled_publish_time", scheduledPublishTime.toString());
+      params.append("published", "false");
     }
 
-    const response = await fetch(
-      `https://graph.facebook.com/v19.0/${pageId}/feed`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params,
-        signal: AbortSignal.timeout(15000),
-      }
-    );
+    const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params,
+      signal: AbortSignal.timeout(15000),
+    });
 
     if (!response.ok) {
       const error = await response.text();
-      logger.error({ status: response.status, error }, 'Facebook publish failed');
+      logger.error({ status: response.status, error }, "Facebook publish failed");
       return {
         success: false,
         error: `Facebook API error: ${response.status}`,
@@ -150,10 +132,10 @@ export async function publishToFacebook(
     const data = (await response.json()) as { id: string };
     return { success: true, postId: data.id };
   } catch (error) {
-    logger.error({ error }, 'Facebook publish failed');
+    logger.error({ error }, "Facebook publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

@@ -1,9 +1,9 @@
 const MAX_RETRIES = 3;
 
 const BACKOFF_DELAYS_MS = [
-  60_000,    // 1 minute
-  300_000,   // 5 minutes
-  900_000,   // 15 minutes
+  60_000, // 1 minute
+  300_000, // 5 minutes
+  900_000, // 15 minutes
 ];
 
 export function shouldRetry(retryCount: number): boolean {

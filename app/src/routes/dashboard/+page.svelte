@@ -1,98 +1,87 @@
 <script lang="ts">
-  import type { PageData } from './$types';
-  import Calendar from '$lib/components/Calendar.svelte';
-  import UpcomingPosts from '$lib/components/UpcomingPosts.svelte';
-  import { StatsCard, StatusBadge } from '@hiai/ui';
-  import { api } from '$lib/api';
+import { api } from "$lib/api";
+import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+let { data }: { data: PageData } = $props();
 
-  const platformIcons: Record<string, string> = {
-    instagram: '📷',
-    x: '𝕏',
-    linkedin: '💼',
-    tiktok: '🎵',
-    facebook: '📘',
-    telegram: '✈️',
+const platformIcons: Record<string, string> = {
+  instagram: "📷",
+  x: "𝕏",
+  linkedin: "💼",
+  tiktok: "🎵",
+  facebook: "📘",
+  telegram: "✈️",
+};
+
+// Compute connected platforms
+const connectedPlatforms = $derived(
+  data.accounts.map((a: any) => ({
+    platform: a.platform,
+    username: a.username,
+    icon: platformIcons[a.platform] ?? "📱",
+    connected: a.status === "active",
+  }))
+);
+
+const allPlatforms = ["instagram", "x", "linkedin", "tiktok", "facebook", "telegram"];
+const _disconnectedPlatforms = $derived(
+  allPlatforms.filter((p) => !connectedPlatforms.some((c: any) => c.platform === p))
+);
+
+// Next scheduled post countdown
+const nextPost = $derived(data.recentPosts.length > 0 ? data.recentPosts[0] : null);
+const _nextPostTime = $derived(nextPost?.scheduledAt ? new Date(nextPost.scheduledAt) : null);
+
+// Summary stats fetched from the API client (app/src/lib/api.ts).
+// Loaded client-side so the dashboard hydrates with live counts even when
+// the server load omits them, and so the API client is the single fetch
+// surface for stats.
+type SummaryStats = {
+  totalPosts: number;
+  scheduled: number;
+  published: number;
+  connectedAccounts: number;
+};
+
+let _stats: SummaryStats = $state({
+  totalPosts: 0,
+  scheduled: 0,
+  published: 0,
+  connectedAccounts: 0,
+});
+let _statsLoading = $state(true);
+let _statsError: string | null = $state(null);
+
+$effect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      const [totalRes, scheduledRes, publishedRes, accountsRes] = await Promise.all([
+        api.get<{ pagination?: { total?: number } }>("/api/v1/posts?limit=1"),
+        api.get<{ pagination?: { total?: number } }>("/api/v1/posts?limit=1&status=scheduled"),
+        api.get<{ pagination?: { total?: number } }>("/api/v1/posts?limit=1&status=published"),
+        api.get<{ data?: Array<{ status?: string }> }>("/api/v1/accounts"),
+      ]);
+      if (cancelled) return;
+      const accounts = accountsRes.data ?? [];
+      _stats = {
+        totalPosts: totalRes.pagination?.total ?? 0,
+        scheduled: scheduledRes.pagination?.total ?? 0,
+        published: publishedRes.pagination?.total ?? 0,
+        connectedAccounts: accounts.filter((a) => a.status === "active").length,
+      };
+      _statsError = null;
+    } catch (err) {
+      if (cancelled) return;
+      _statsError = err instanceof Error ? err.message : "Failed to load summary";
+    } finally {
+      if (!cancelled) _statsLoading = false;
+    }
+  })();
+  return () => {
+    cancelled = true;
   };
-
-  // Compute connected platforms
-  const connectedPlatforms = $derived(
-    data.accounts.map((a: any) => ({
-      platform: a.platform,
-      username: a.username,
-      icon: platformIcons[a.platform] ?? '📱',
-      connected: a.status === 'active',
-    }))
-  );
-
-  const allPlatforms = ['instagram', 'x', 'linkedin', 'tiktok', 'facebook', 'telegram'];
-  const disconnectedPlatforms = $derived(
-    allPlatforms.filter(p => !connectedPlatforms.some((c: any) => c.platform === p))
-  );
-
-  // Next scheduled post countdown
-  const nextPost = $derived(
-    data.recentPosts.length > 0 ? data.recentPosts[0] : null
-  );
-  const nextPostTime = $derived(
-    nextPost?.scheduledAt ? new Date(nextPost.scheduledAt) : null
-  );
-
-  // Summary stats fetched from the API client (app/src/lib/api.ts).
-  // Loaded client-side so the dashboard hydrates with live counts even when
-  // the server load omits them, and so the API client is the single fetch
-  // surface for stats.
-  type SummaryStats = {
-    totalPosts: number;
-    scheduled: number;
-    published: number;
-    connectedAccounts: number;
-  };
-
-  let stats: SummaryStats = $state({
-    totalPosts: 0,
-    scheduled: 0,
-    published: 0,
-    connectedAccounts: 0,
-  });
-  let statsLoading = $state(true);
-  let statsError: string | null = $state(null);
-
-  $effect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [totalRes, scheduledRes, publishedRes, accountsRes] = await Promise.all([
-          api.get<{ pagination?: { total?: number } }>('/api/v1/posts?limit=1'),
-          api.get<{ pagination?: { total?: number } }>(
-            '/api/v1/posts?limit=1&status=scheduled'
-          ),
-          api.get<{ pagination?: { total?: number } }>(
-            '/api/v1/posts?limit=1&status=published'
-          ),
-          api.get<{ data?: Array<{ status?: string }> }>('/api/v1/accounts'),
-        ]);
-        if (cancelled) return;
-        const accounts = accountsRes.data ?? [];
-        stats = {
-          totalPosts: totalRes.pagination?.total ?? 0,
-          scheduled: scheduledRes.pagination?.total ?? 0,
-          published: publishedRes.pagination?.total ?? 0,
-          connectedAccounts: accounts.filter((a) => a.status === 'active').length,
-        };
-        statsError = null;
-      } catch (err) {
-        if (cancelled) return;
-        statsError = err instanceof Error ? err.message : 'Failed to load summary';
-      } finally {
-        if (!cancelled) statsLoading = false;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  });
+});
 </script>
 
 <svelte:head>

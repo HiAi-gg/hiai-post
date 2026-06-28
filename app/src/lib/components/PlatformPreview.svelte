@@ -1,13 +1,19 @@
 <script lang="ts">
-  let { platform = 'instagram', content = '', mediaUrls = [] as string[] } = $props();
+let { platform = "instagram", content = "", mediaUrls = [] as string[] } = $props();
 
-  const charLimits: Record<string, number> = {
-    instagram: 2200, tiktok: 2200, x: 280, linkedin: 3000, facebook: 63206, telegram: 4096,
-    threads: 500, pinterest: 500,
-  };
+const charLimits: Record<string, number> = {
+  instagram: 2200,
+  tiktok: 2200,
+  x: 280,
+  linkedin: 3000,
+  facebook: 63206,
+  telegram: 4096,
+  threads: 500,
+  pinterest: 500,
+};
 
-  const limit = $derived(charLimits[platform] ?? 2200);
-  const isOver = $derived(content.length > limit);
+const limit = $derived(charLimits[platform] ?? 2200);
+const _isOver = $derived(content.length > limit);
 </script>
 
 <div class="bg-card border border-border rounded-lg p-4">

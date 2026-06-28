@@ -6,12 +6,11 @@
  * Scopes: tweet.read,tweet.write,users.read,offline.access
  */
 
-import { encryptToken } from '../../lib/encryption.js';
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
-const X_AUTH_URL = 'https://twitter.com/i/oauth2/authorize';
-const X_TOKEN_URL = 'https://api.x.com/2/oauth2/token';
-const X_API_URL = 'https://api.twitter.com/2';
+const X_AUTH_URL = "https://twitter.com/i/oauth2/authorize";
+const X_TOKEN_URL = "https://api.x.com/2/oauth2/token";
+const X_API_URL = "https://api.twitter.com/2";
 
 export interface XOAuthConfig {
   clientId: string;
@@ -52,11 +51,11 @@ export function getXAuthUrl(config: XOAuthConfig, state: string, codeChallenge: 
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
-    scope: 'tweet.read,tweet.write,users.read,offline.access',
-    response_type: 'code',
+    scope: "tweet.read,tweet.write,users.read,offline.access",
+    response_type: "code",
     state,
     code_challenge: codeChallenge,
-    code_challenge_method: 'plain',
+    code_challenge_method: "plain",
   });
   return `${X_AUTH_URL}?${params}`;
 }
@@ -64,26 +63,26 @@ export function getXAuthUrl(config: XOAuthConfig, state: string, codeChallenge: 
 export async function exchangeXCode(
   config: XOAuthConfig,
   code: string,
-  codeVerifier: string,
+  codeVerifier: string
 ): Promise<XTokenResponse> {
   const params = new URLSearchParams({
     client_id: config.clientId,
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
     redirect_uri: config.redirectUri,
     code,
     code_verifier: codeVerifier,
   });
 
   const response = await fetch(X_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
     signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    logger.error({ status: response.status, error: err }, 'X token exchange failed');
+    logger.error({ status: response.status, error: err }, "X token exchange failed");
     throw new Error(`X token exchange failed: ${response.status}`);
   }
 
@@ -104,24 +103,24 @@ export async function exchangeXCode(
 
 export async function refreshXToken(
   config: XOAuthConfig,
-  refreshToken: string,
+  refreshToken: string
 ): Promise<XTokenResponse> {
   const params = new URLSearchParams({
-    grant_type: 'refresh_token',
+    grant_type: "refresh_token",
     refresh_token: refreshToken,
     client_id: config.clientId,
   });
 
   const response = await fetch(X_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
     signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    logger.error({ status: response.status, error: err }, 'X token refresh failed');
+    logger.error({ status: response.status, error: err }, "X token refresh failed");
     throw new Error(`X token refresh failed: ${response.status}`);
   }
 
@@ -141,10 +140,13 @@ export async function refreshXToken(
 }
 
 export async function getXUserProfile(accessToken: string): Promise<XProfile> {
-  const response = await fetch(`${X_API_URL}/users/me?user.fields=profile_image_url,description,verified`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    signal: AbortSignal.timeout(10000),
-  });
+  const response = await fetch(
+    `${X_API_URL}/users/me?user.fields=profile_image_url,description,verified`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10000),
+    }
+  );
 
   if (!response.ok) {
     throw new Error(`X profile fetch failed: ${response.status}`);
@@ -162,7 +164,7 @@ export async function getXUserProfile(accessToken: string): Promise<XProfile> {
   };
 
   if (!data.data) {
-    throw new Error('X user not found');
+    throw new Error("X user not found");
   }
 
   return {
@@ -175,9 +177,7 @@ export async function getXUserProfile(accessToken: string): Promise<XProfile> {
   };
 }
 
-export async function publishXTweet(
-  options: XPublishOptions,
-): Promise<XPublishResult> {
+export async function publishXTweet(options: XPublishOptions): Promise<XPublishResult> {
   try {
     const { accessToken, text, mediaIds, replyToTweetId } = options;
 
@@ -192,10 +192,10 @@ export async function publishXTweet(
     }
 
     const response = await fetch(`${X_API_URL}/tweets`, {
-      method: 'POST',
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
@@ -203,17 +203,17 @@ export async function publishXTweet(
 
     if (!response.ok) {
       const err = await response.text();
-      logger.error({ status: response.status, error: err }, 'X tweet failed');
+      logger.error({ status: response.status, error: err }, "X tweet failed");
       return { success: false, error: `X API error: ${response.status}` };
     }
 
     const data = (await response.json()) as { data?: { id?: string } };
     return { success: true, tweetId: data.data?.id };
   } catch (error) {
-    logger.error({ error }, 'X publish failed');
+    logger.error({ error }, "X publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

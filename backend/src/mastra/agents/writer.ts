@@ -1,8 +1,8 @@
-import { Agent } from '@mastra/core/agent';
+import { Agent } from "@mastra/core/agent";
 
 export const writerAgent = new Agent({
-  id: 'writer',
-  name: 'writer',
+  id: "writer",
+  name: "writer",
   instructions: `You are a professional social media content writer. You create engaging, platform-native posts.
 Rules:
 - Match the tone requested (professional, casual, humorous, inspirational)
@@ -13,7 +13,7 @@ Rules:
 - Write engaging hooks in the first line
 - Include a clear call-to-action when appropriate`,
   model: {
-    provider: 'OPEN_ROUTER',
-    name: 'openai/gpt-4o',
+    provider: "OPEN_ROUTER",
+    name: "openai/gpt-4o",
   } as any,
 });

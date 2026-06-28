@@ -3,10 +3,9 @@
  * API: https://api.telegram.org/bot<token>/
  */
 
-import { encryptToken } from '../../lib/encryption.js';
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
-const TELEGRAM_API_URL = 'https://api.telegram.org';
+const TELEGRAM_API_URL = "https://api.telegram.org";
 
 export interface TelegramBotConfig {
   botToken: string;
@@ -23,7 +22,7 @@ export interface TelegramBotInfo {
 
 export interface TelegramChatInfo {
   id: number;
-  type: 'private' | 'group' | 'supergroup' | 'channel';
+  type: "private" | "group" | "supergroup" | "channel";
   title?: string;
   username?: string;
   firstName?: string;
@@ -37,7 +36,7 @@ export interface TelegramMessageResult {
 }
 
 export interface TelegramMediaGroupItem {
-  type: 'photo' | 'video' | 'document' | 'animation';
+  type: "photo" | "video" | "document" | "animation";
   media: string;
   caption?: string;
   parse_mode?: string;
@@ -69,7 +68,7 @@ export async function getTelegramBotInfo(botToken: string): Promise<TelegramBotI
   };
 
   if (!data.ok || !data.result) {
-    throw new Error('Telegram bot info not available');
+    throw new Error("Telegram bot info not available");
   }
 
   return {
@@ -84,7 +83,7 @@ export async function getTelegramBotInfo(botToken: string): Promise<TelegramBotI
 
 export async function getTelegramChatInfo(
   botToken: string,
-  chatId: string,
+  chatId: string
 ): Promise<TelegramChatInfo> {
   const response = await fetch(`${botUrl(botToken)}/getChat?chat_id=${chatId}`, {
     signal: AbortSignal.timeout(10000),
@@ -107,12 +106,12 @@ export async function getTelegramChatInfo(
   };
 
   if (!data.ok || !data.result) {
-    throw new Error('Telegram chat not found');
+    throw new Error("Telegram chat not found");
   }
 
   return {
     id: data.result.id,
-    type: data.result.type as TelegramChatInfo['type'],
+    type: data.result.type as TelegramChatInfo["type"],
     title: data.result.title,
     username: data.result.username,
     firstName: data.result.first_name,
@@ -124,7 +123,7 @@ export async function sendTelegramMessage(
   botToken: string,
   chatId: string,
   text: string,
-  parseMode?: 'Markdown' | 'MarkdownV2' | 'HTML',
+  parseMode?: "Markdown" | "MarkdownV2" | "HTML"
 ): Promise<TelegramMessageResult> {
   try {
     const body: Record<string, unknown> = {
@@ -137,25 +136,25 @@ export async function sendTelegramMessage(
     }
 
     const response = await fetch(`${botUrl(botToken)}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      logger.error({ status: response.status, error: err }, 'Telegram sendMessage failed');
+      logger.error({ status: response.status, error: err }, "Telegram sendMessage failed");
       return { success: false, error: `Telegram API error: ${response.status}` };
     }
 
     const data = (await response.json()) as { result?: { message_id?: number } };
     return { success: true, messageId: data.result?.message_id };
   } catch (error) {
-    logger.error({ error }, 'Telegram sendMessage failed');
+    logger.error({ error }, "Telegram sendMessage failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
@@ -165,7 +164,7 @@ export async function sendTelegramPhoto(
   chatId: string,
   photoUrl: string,
   caption?: string,
-  parseMode?: 'Markdown' | 'MarkdownV2' | 'HTML',
+  parseMode?: "Markdown" | "MarkdownV2" | "HTML"
 ): Promise<TelegramMessageResult> {
   try {
     const body: Record<string, unknown> = {
@@ -181,25 +180,25 @@ export async function sendTelegramPhoto(
     }
 
     const response = await fetch(`${botUrl(botToken)}/sendPhoto`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      logger.error({ status: response.status, error: err }, 'Telegram sendPhoto failed');
+      logger.error({ status: response.status, error: err }, "Telegram sendPhoto failed");
       return { success: false, error: `Telegram API error: ${response.status}` };
     }
 
     const data = (await response.json()) as { result?: { message_id?: number } };
     return { success: true, messageId: data.result?.message_id };
   } catch (error) {
-    logger.error({ error }, 'Telegram sendPhoto failed');
+    logger.error({ error }, "Telegram sendPhoto failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
@@ -207,12 +206,12 @@ export async function sendTelegramPhoto(
 export async function sendTelegramMediaGroup(
   botToken: string,
   chatId: string,
-  media: TelegramMediaGroupItem[],
+  media: TelegramMediaGroupItem[]
 ): Promise<TelegramMessageResult> {
   try {
     const response = await fetch(`${botUrl(botToken)}/sendMediaGroup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
         media: media.slice(0, 10).map((item) => ({
@@ -227,17 +226,17 @@ export async function sendTelegramMediaGroup(
 
     if (!response.ok) {
       const err = await response.text();
-      logger.error({ status: response.status, error: err }, 'Telegram sendMediaGroup failed');
+      logger.error({ status: response.status, error: err }, "Telegram sendMediaGroup failed");
       return { success: false, error: `Telegram API error: ${response.status}` };
     }
 
     const data = (await response.json()) as { result?: Array<{ message_id?: number }> };
     return { success: true, messageId: data.result?.[0]?.message_id };
   } catch (error) {
-    logger.error({ error }, 'Telegram sendMediaGroup failed');
+    logger.error({ error }, "Telegram sendMediaGroup failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

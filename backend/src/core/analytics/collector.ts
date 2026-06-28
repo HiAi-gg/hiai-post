@@ -3,12 +3,11 @@
  * Runs as a scheduled job (every hour).
  */
 
-import { db } from '../../db/index.js';
-import { posts, postAnalytics, socialAccounts } from '../../db/schema.js';
-import { eq, and, sql } from 'drizzle-orm';
-import { logger } from '../../lib/logger.js';
-import { config } from '../../lib/config.js';
-import { decryptToken } from '../../lib/encryption.js';
+import { and, eq, sql } from "drizzle-orm";
+import { db } from "../../db/index.js";
+import { postAnalytics, posts, socialAccounts } from "../../db/schema.js";
+import { decryptToken } from "../../lib/encryption.js";
+import { logger } from "../../lib/logger.js";
 
 interface PlatformMetrics {
   impressions: number;
@@ -40,20 +39,19 @@ async function fetchInstagramMetrics(
     };
 
     const metrics = data.data || [];
-    const getMetric = (name: string) =>
-      metrics.find((m) => m.name === name)?.values[0]?.value || 0;
+    const getMetric = (name: string) => metrics.find((m) => m.name === name)?.values[0]?.value || 0;
 
     return {
-      impressions: getMetric('impressions'),
-      reach: getMetric('reach'),
+      impressions: getMetric("impressions"),
+      reach: getMetric("reach"),
       likes: 0, // Need separate endpoint
       comments: 0,
       shares: 0,
-      saves: getMetric('saved'),
+      saves: getMetric("saved"),
       clicks: 0,
     };
   } catch (error) {
-    logger.error({ error, postId }, 'Instagram metrics fetch failed');
+    logger.error({ error, postId }, "Instagram metrics fetch failed");
     return null;
   }
 }
@@ -101,7 +99,7 @@ async function fetchXMetrics(
       clicks: 0,
     };
   } catch (error) {
-    logger.error({ error, tweetId }, 'X metrics fetch failed');
+    logger.error({ error, tweetId }, "X metrics fetch failed");
     return null;
   }
 }
@@ -119,7 +117,7 @@ async function fetchLinkedInMetrics(
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'X-Restli-Protocol-Version': '2.0.0',
+          "X-Restli-Protocol-Version": "2.0.0",
         },
         signal: AbortSignal.timeout(10000),
       }
@@ -142,7 +140,7 @@ async function fetchLinkedInMetrics(
       clicks: 0,
     };
   } catch (error) {
-    logger.error({ error, postUrn }, 'LinkedIn metrics fetch failed');
+    logger.error({ error, postUrn }, "LinkedIn metrics fetch failed");
     return null;
   }
 }
@@ -170,7 +168,7 @@ export async function collectAllMetrics(): Promise<{
       .from(posts)
       .where(
         and(
-          eq(posts.status, 'published'),
+          eq(posts.status, "published"),
           sql`${posts.publishedAt} > now() - interval '30 days'`,
           sql`${posts.platformPostId} IS NOT NULL`
         )
@@ -194,20 +192,14 @@ export async function collectAllMetrics(): Promise<{
         let metrics: PlatformMetrics | null = null;
 
         switch (post.platform) {
-          case 'instagram':
-            metrics = await fetchInstagramMetrics(
-              post.platformPostId,
-              accessToken
-            );
+          case "instagram":
+            metrics = await fetchInstagramMetrics(post.platformPostId, accessToken);
             break;
-          case 'x':
+          case "x":
             metrics = await fetchXMetrics(post.platformPostId, accessToken);
             break;
-          case 'linkedin':
-            metrics = await fetchLinkedInMetrics(
-              post.platformPostId,
-              accessToken
-            );
+          case "linkedin":
+            metrics = await fetchLinkedInMetrics(post.platformPostId, accessToken);
             break;
           // TikTok, Facebook, Telegram: no public metrics API or different pattern
           default:
@@ -216,12 +208,9 @@ export async function collectAllMetrics(): Promise<{
 
         if (metrics) {
           // Calculate engagement rate
-          const totalEngagement =
-            metrics.likes + metrics.comments + metrics.shares + metrics.saves;
+          const totalEngagement = metrics.likes + metrics.comments + metrics.shares + metrics.saves;
           const engagementRate =
-            metrics.impressions > 0
-              ? (totalEngagement / metrics.impressions) * 100
-              : 0;
+            metrics.impressions > 0 ? (totalEngagement / metrics.impressions) * 100 : 0;
 
           // Upsert analytics
           await db
@@ -258,13 +247,13 @@ export async function collectAllMetrics(): Promise<{
         }
       } catch (error) {
         errors++;
-        logger.error({ error, postId: post.id }, 'Metrics collection failed for post');
+        logger.error({ error, postId: post.id }, "Metrics collection failed for post");
       }
     }
 
-    logger.info({ processed, errors }, 'Metrics collection completed');
+    logger.info({ processed, errors }, "Metrics collection completed");
   } catch (error) {
-    logger.error({ error }, 'Metrics collection batch failed');
+    logger.error({ error }, "Metrics collection batch failed");
   }
 
   return { processed, errors };

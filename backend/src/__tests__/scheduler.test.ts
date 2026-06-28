@@ -1,62 +1,62 @@
-import { describe, it, expect, vi } from 'vitest';
-import { shouldRetry, getNextRetryTime, getMaxRetries } from '../core/scheduler/retry.js';
-import { getPlatformLimits } from '../core/scheduler/rate-limiter.js';
+import { describe, expect, it } from "vitest";
+import { getPlatformLimits } from "../core/scheduler/rate-limiter.js";
+import { getMaxRetries, getNextRetryTime, shouldRetry } from "../core/scheduler/retry.js";
 
-describe('Rate Limiter — Platform Limits', () => {
-  it('getPlatformLimits returns correct limits for instagram', () => {
-    const limits = getPlatformLimits('instagram');
+describe("Rate Limiter — Platform Limits", () => {
+  it("getPlatformLimits returns correct limits for instagram", () => {
+    const limits = getPlatformLimits("instagram");
     expect(limits).not.toBeNull();
     expect(limits!.maxRequests).toBe(200);
     expect(limits!.windowMs).toBe(3_600_000); // 1 hour
   });
 
-  it('getPlatformLimits returns correct limits for x', () => {
-    const limits = getPlatformLimits('x');
+  it("getPlatformLimits returns correct limits for x", () => {
+    const limits = getPlatformLimits("x");
     expect(limits).not.toBeNull();
     expect(limits!.maxRequests).toBe(300);
     expect(limits!.windowMs).toBe(900_000); // 15 min
   });
 
-  it('getPlatformLimits returns correct limits for linkedin', () => {
-    const limits = getPlatformLimits('linkedin');
+  it("getPlatformLimits returns correct limits for linkedin", () => {
+    const limits = getPlatformLimits("linkedin");
     expect(limits).not.toBeNull();
     expect(limits!.maxRequests).toBe(100);
     expect(limits!.windowMs).toBe(86_400_000); // 1 day
   });
 
-  it('getPlatformLimits returns correct limits for tiktok', () => {
-    const limits = getPlatformLimits('tiktok');
+  it("getPlatformLimits returns correct limits for tiktok", () => {
+    const limits = getPlatformLimits("tiktok");
     expect(limits).not.toBeNull();
     expect(limits!.maxRequests).toBe(50);
     expect(limits!.windowMs).toBe(3_600_000);
   });
 
-  it('getPlatformLimits returns correct limits for telegram', () => {
-    const limits = getPlatformLimits('telegram');
+  it("getPlatformLimits returns correct limits for telegram", () => {
+    const limits = getPlatformLimits("telegram");
     expect(limits).not.toBeNull();
     expect(limits!.maxRequests).toBe(30);
     expect(limits!.windowMs).toBe(60_000);
   });
 
-  it('getPlatformLimits returns null for unknown platform', () => {
-    const limits = getPlatformLimits('unknown');
+  it("getPlatformLimits returns null for unknown platform", () => {
+    const limits = getPlatformLimits("unknown");
     expect(limits).toBeNull();
   });
 });
 
-describe('Retry Logic', () => {
-  it('shouldRetry returns true when retryCount < maxRetries', () => {
+describe("Retry Logic", () => {
+  it("shouldRetry returns true when retryCount < maxRetries", () => {
     expect(shouldRetry(0)).toBe(true);
     expect(shouldRetry(1)).toBe(true);
     expect(shouldRetry(2)).toBe(true);
   });
 
-  it('shouldRetry returns false when retryCount >= maxRetries', () => {
+  it("shouldRetry returns false when retryCount >= maxRetries", () => {
     expect(shouldRetry(3)).toBe(false);
     expect(shouldRetry(5)).toBe(false);
   });
 
-  it('getNextRetryTime returns increasing delays', () => {
+  it("getNextRetryTime returns increasing delays", () => {
     const before = Date.now();
     const t0 = getNextRetryTime(0);
     const t1 = getNextRetryTime(1);
@@ -75,7 +75,7 @@ describe('Retry Logic', () => {
     expect(t2.getTime()).toBeLessThan(before + 901_000);
   });
 
-  it('getNextRetryTime caps at max backoff for high retry counts', () => {
+  it("getNextRetryTime caps at max backoff for high retry counts", () => {
     const before = Date.now();
     const t10 = getNextRetryTime(10);
 
@@ -84,7 +84,7 @@ describe('Retry Logic', () => {
     expect(t10.getTime()).toBeLessThan(before + 901_000);
   });
 
-  it('getMaxRetries returns 3', () => {
+  it("getMaxRetries returns 3", () => {
     expect(getMaxRetries()).toBe(3);
   });
 });

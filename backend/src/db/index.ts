@@ -1,2 +1,2 @@
-export * from './schema.js';
-export { db, checkDbHealth, withTransaction } from '../lib/db.js';
+export { checkDbHealth, db, withTransaction } from "../lib/db.js";
+export * from "./schema.js";

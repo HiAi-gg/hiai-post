@@ -1,26 +1,26 @@
-import { Elysia } from 'elysia';
-import { db } from '../../lib/db.js';
-import { campaigns, contentPlans, posts } from '../../db/schema.js';
-import { eq, and, desc, sql, inArray, gt } from 'drizzle-orm';
-import { tenantMiddleware } from '../middleware/tenant.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { createRateLimiter } from '../middleware/rateLimiter.js';
+import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { Elysia } from "elysia";
+import { campaigns, contentPlans, posts } from "../../db/schema.js";
+import { db } from "../../lib/db.js";
+import { logger } from "../../lib/logger.js";
+import { enqueuePost, removeQueuedPost } from "../../lib/redis.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { tenantMiddleware } from "../middleware/tenant.js";
 import {
+  bulkScheduleCampaignSchema,
   createCampaignSchema,
   paginationSchema,
-  bulkScheduleCampaignSchema,
-} from '../validation/schemas.js';
-import { enqueuePost, removeQueuedPost } from '../../lib/redis.js';
-import { logger } from '../../lib/logger.js';
+} from "../validation/schemas.js";
 
-const log = logger.child({ module: 'campaigns-route' });
+const log = logger.child({ module: "campaigns-route" });
 
-export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
-  .use(createRateLimiter('authenticated') as any)
+export const campaignsRoutes = new Elysia({ prefix: "/api/v1/campaigns" })
+  .use(createRateLimiter("authenticated") as any)
   .use(authMiddleware)
   .use(tenantMiddleware)
   // List campaigns
-  .get('/', async ({ tenantId, query }: any) => {
+  .get("/", async ({ tenantId, query }: any) => {
     const { page, limit } = paginationSchema.parse(query);
 
     const where = eq(campaigns.tenantId, tenantId);
@@ -43,7 +43,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
     };
   })
   // Get single campaign with content plans
-  .get('/:id', async ({ params, tenantId, set }: any) => {
+  .get("/:id", async ({ params, tenantId, set }: any) => {
     const [campaign] = await db
       .select()
       .from(campaigns)
@@ -52,7 +52,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     if (!campaign) {
       set.status = 404;
-      return { error: 'Campaign not found' };
+      return { error: "Campaign not found" };
     }
 
     const plans = await db
@@ -63,7 +63,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
     return { campaign, contentPlans: plans };
   })
   // Get campaign progress
-  .get('/:id/progress', async ({ params, tenantId, set }: any) => {
+  .get("/:id/progress", async ({ params, tenantId, set }: any) => {
     const [campaign] = await db
       .select()
       .from(campaigns)
@@ -72,30 +72,25 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     if (!campaign) {
       set.status = 404;
-      return { error: 'Campaign not found' };
+      return { error: "Campaign not found" };
     }
 
     const planStatuses = await db
       .select({ status: posts.status })
       .from(contentPlans)
       .leftJoin(posts, eq(contentPlans.postId, posts.id))
-      .where(
-        and(
-          eq(contentPlans.campaignId, params.id),
-          eq(contentPlans.tenantId, tenantId),
-        ),
-      );
+      .where(and(eq(contentPlans.campaignId, params.id), eq(contentPlans.tenantId, tenantId)));
 
-    const published = planStatuses.filter((p) => p.status === 'published').length;
-    const scheduled = planStatuses.filter((p) => p.status === 'scheduled').length;
-    const failed = planStatuses.filter((p) => p.status === 'failed').length;
+    const published = planStatuses.filter((p) => p.status === "published").length;
+    const scheduled = planStatuses.filter((p) => p.status === "scheduled").length;
+    const failed = planStatuses.filter((p) => p.status === "failed").length;
     const total = planStatuses.length;
     const remaining = total - published - failed;
 
     return { published, scheduled, failed, remaining, total };
   })
   // Pause campaign — sets status to paused, removes scheduled posts from queue
-  .post('/:id/pause', async ({ params, tenantId, set }: any) => {
+  .post("/:id/pause", async ({ params, tenantId, set }: any) => {
     const [campaign] = await db
       .select()
       .from(campaigns)
@@ -104,34 +99,27 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     if (!campaign) {
       set.status = 404;
-      return { error: 'Campaign not found' };
+      return { error: "Campaign not found" };
     }
 
-    if (campaign.status !== 'active') {
+    if (campaign.status !== "active") {
       set.status = 400;
-      return { error: 'Only active campaigns can be paused' };
+      return { error: "Only active campaigns can be paused" };
     }
 
     // Find all scheduled posts linked to this campaign
     const planPostIds = await db
       .select({ postId: contentPlans.postId })
       .from(contentPlans)
-      .where(
-        and(
-          eq(contentPlans.campaignId, params.id),
-          eq(contentPlans.tenantId, tenantId),
-        ),
-      );
+      .where(and(eq(contentPlans.campaignId, params.id), eq(contentPlans.tenantId, tenantId)));
 
-    const postIds = planPostIds
-      .map((p) => p.postId)
-      .filter(Boolean) as string[];
+    const postIds = planPostIds.map((p) => p.postId).filter(Boolean) as string[];
 
     if (postIds.length > 0) {
       const scheduledPosts = await db
-      .select({ id: posts.id })
-      .from(posts)
-      .where(and(inArray(posts.id, postIds), eq(posts.status, 'scheduled')));
+        .select({ id: posts.id })
+        .from(posts)
+        .where(and(inArray(posts.id, postIds), eq(posts.status, "scheduled")));
 
       for (const post of scheduledPosts) {
         await removeQueuedPost(tenantId, post.id);
@@ -140,15 +128,15 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     const [updated] = await db
       .update(campaigns)
-      .set({ status: 'paused', updatedAt: new Date() })
+      .set({ status: "paused", updatedAt: new Date() })
       .where(eq(campaigns.id, params.id))
       .returning();
 
-    log.info({ campaignId: params.id }, 'Campaign paused');
+    log.info({ campaignId: params.id }, "Campaign paused");
     return { campaign: updated };
   })
   // Resume campaign — sets status to active, re-enqueues pending posts
-  .post('/:id/resume', async ({ params, tenantId, set }: any) => {
+  .post("/:id/resume", async ({ params, tenantId, set }: any) => {
     const [campaign] = await db
       .select()
       .from(campaigns)
@@ -157,12 +145,12 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     if (!campaign) {
       set.status = 404;
-      return { error: 'Campaign not found' };
+      return { error: "Campaign not found" };
     }
 
-    if (campaign.status !== 'paused') {
+    if (campaign.status !== "paused") {
       set.status = 400;
-      return { error: 'Only paused campaigns can be resumed' };
+      return { error: "Only paused campaigns can be resumed" };
     }
 
     // Find scheduled posts with a future scheduledAt
@@ -175,9 +163,9 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
         and(
           eq(contentPlans.campaignId, params.id),
           eq(contentPlans.tenantId, tenantId),
-          eq(posts.status, 'scheduled'),
-          gt(posts.scheduledAt, now),
-        ),
+          eq(posts.status, "scheduled"),
+          gt(posts.scheduledAt, now)
+        )
       );
 
     for (const p of postsToEnqueue) {
@@ -188,15 +176,15 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     const [updated] = await db
       .update(campaigns)
-      .set({ status: 'active', updatedAt: new Date() })
+      .set({ status: "active", updatedAt: new Date() })
       .where(eq(campaigns.id, params.id))
       .returning();
 
-    log.info({ campaignId: params.id, reEnqueued: postsToEnqueue.length }, 'Campaign resumed');
+    log.info({ campaignId: params.id, reEnqueued: postsToEnqueue.length }, "Campaign resumed");
     return { campaign: updated };
   })
   // Bulk schedule posts in a campaign at regular intervals
-  .post('/:id/bulk-schedule', async ({ params, body, tenantId, set }: any) => {
+  .post("/:id/bulk-schedule", async ({ params, body, tenantId, set }: any) => {
     const input = bulkScheduleCampaignSchema.parse(body);
 
     const [campaign] = await db
@@ -207,7 +195,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     if (!campaign) {
       set.status = 404;
-      return { error: 'Campaign not found' };
+      return { error: "Campaign not found" };
     }
 
     const startDate = new Date(input.startDate);
@@ -215,8 +203,8 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     for (let i = 0; i < input.postIds.length; i++) {
       const scheduleDate = new Date(startDate.getTime() + i * input.intervalMinutes * 60 * 1000);
-      const hours = String(scheduleDate.getHours()).padStart(2, '0');
-      const minutes = String(scheduleDate.getMinutes()).padStart(2, '0');
+      const hours = String(scheduleDate.getHours()).padStart(2, "0");
+      const minutes = String(scheduleDate.getMinutes()).padStart(2, "0");
 
       const [plan] = await db
         .insert(contentPlans)
@@ -227,7 +215,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
           slotTime: `${hours}:${minutes}`,
           postId: input.postIds[i],
           campaignId: params.id,
-          status: 'planned',
+          status: "planned",
         })
         .returning();
 
@@ -237,12 +225,10 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
         .update(posts)
         .set({
           scheduledAt: scheduleDate,
-          status: 'scheduled',
+          status: "scheduled",
           updatedAt: new Date(),
         })
-        .where(
-          and(eq(posts.id, input.postIds[i]), eq(posts.tenantId, tenantId)),
-        )
+        .where(and(eq(posts.id, input.postIds[i]), eq(posts.tenantId, tenantId)))
         .returning();
 
       if (updatedPost) {
@@ -254,7 +240,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
     return { plans: createdPlans };
   })
   // Create campaign
-  .post('/', async ({ body, tenantId, set }: any) => {
+  .post("/", async ({ body, tenantId, set }: any) => {
     const input = createCampaignSchema.parse(body);
     const [campaign] = await db
       .insert(campaigns)
@@ -271,7 +257,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
     return { campaign };
   })
   // Update campaign
-  .put('/:id', async ({ params, body, tenantId, set }: any) => {
+  .put("/:id", async ({ params, body, tenantId, set }: any) => {
     const input = createCampaignSchema.partial().parse(body);
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (input.name) updateData.name = input.name;
@@ -287,12 +273,12 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     if (!updated) {
       set.status = 404;
-      return { error: 'Campaign not found' };
+      return { error: "Campaign not found" };
     }
     return { campaign: updated };
   })
   // Delete campaign
-  .delete('/:id', async ({ params, tenantId, set }: any) => {
+  .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db
       .delete(campaigns)
       .where(and(eq(campaigns.id, params.id), eq(campaigns.tenantId, tenantId)))
@@ -300,7 +286,7 @@ export const campaignsRoutes = new Elysia({ prefix: '/api/v1/campaigns' })
 
     if (!deleted) {
       set.status = 404;
-      return { error: 'Campaign not found' };
+      return { error: "Campaign not found" };
     }
     return { success: true };
   });

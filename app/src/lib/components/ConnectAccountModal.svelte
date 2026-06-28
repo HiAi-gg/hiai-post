@@ -1,19 +1,19 @@
 <script lang="ts">
-  let { open = $bindable(false), onConnect } = $props();
+let { open = $bindable(false), onConnect } = $props();
 
-  const PLATFORMS = [
-    { id: 'instagram', name: 'Instagram' },
-    { id: 'tiktok', name: 'TikTok' },
-    { id: 'x', name: 'X (Twitter)' },
-    { id: 'linkedin', name: 'LinkedIn' },
-    { id: 'facebook', name: 'Facebook' },
-    { id: 'telegram', name: 'Telegram' },
-  ];
+const _PLATFORMS = [
+  { id: "instagram", name: "Instagram" },
+  { id: "tiktok", name: "TikTok" },
+  { id: "x", name: "X (Twitter)" },
+  { id: "linkedin", name: "LinkedIn" },
+  { id: "facebook", name: "Facebook" },
+  { id: "telegram", name: "Telegram" },
+];
 
-  async function connect(platformId: string) {
-    if (onConnect) await onConnect(platformId);
-    open = false;
-  }
+async function _connect(platformId: string) {
+  if (onConnect) await onConnect(platformId);
+  open = false;
+}
 </script>
 
 {#if open}

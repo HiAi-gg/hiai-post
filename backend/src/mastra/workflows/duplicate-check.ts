@@ -1,12 +1,12 @@
-import { createStep } from '@mastra/core/workflows';
-import { z } from 'zod';
-import { db } from '../../db/index.js';
-import { posts } from '../../db/schema.js';
-import { eq, and, gte, sql } from 'drizzle-orm';
+import { createStep } from "@mastra/core/workflows";
+import { and, eq, gte, sql } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "../../db/index.js";
+import { posts } from "../../db/schema.js";
 
 export const duplicateCheckStep = createStep({
-  id: 'duplicate-check',
-  description: 'Three-tier deduplication: title overlap, semantic similarity, template match',
+  id: "duplicate-check",
+  description: "Three-tier deduplication: title overlap, semantic similarity, template match",
   inputSchema: z.object({
     title: z.string(),
     content: z.string(),
@@ -39,18 +39,13 @@ export const duplicateCheckStep = createStep({
     const recentPosts = await db
       .select({ contentText: posts.contentText })
       .from(posts)
-      .where(
-        and(
-          eq(posts.tenantId, tenantId),
-          gte(posts.createdAt, sevenDaysAgo)
-        )
-      )
+      .where(and(eq(posts.tenantId, tenantId), gte(posts.createdAt, sevenDaysAgo)))
       .limit(100);
 
     const titleWords = new Set(
       title
         .toLowerCase()
-        .replace(/[^\w\s]/g, '')
+        .replace(/[^\w\s]/g, "")
         .split(/\s+/)
         .filter((w: string) => w.length > 2)
     );
@@ -60,16 +55,14 @@ export const duplicateCheckStep = createStep({
       const recentWords = new Set(
         recent.contentText
           .toLowerCase()
-          .replace(/[^\w\s]/g, '')
+          .replace(/[^\w\s]/g, "")
           .split(/\s+/)
           .filter((w: string) => w.length > 2)
       );
 
       if (titleWords.size === 0 || recentWords.size === 0) continue;
 
-      const intersection = new Set(
-        [...titleWords].filter((w) => recentWords.has(w))
-      );
+      const intersection = new Set([...titleWords].filter((w) => recentWords.has(w)));
       const union = new Set([...titleWords, ...recentWords]);
       const jaccard = intersection.size / union.size;
 
@@ -85,7 +78,7 @@ export const duplicateCheckStep = createStep({
     // Tier 2: Content substring check (> 50% of content matches an existing post)
     const contentNormalized = content
       .toLowerCase()
-      .replace(/[^\w\s]/g, '')
+      .replace(/[^\w\s]/g, "")
       .trim();
 
     if (contentNormalized.length > 100) {
@@ -98,7 +91,7 @@ export const duplicateCheckStep = createStep({
         if (!recent.contentText) continue;
         const recentContent = recent.contentText
           .toLowerCase()
-          .replace(/[^\w\s]/g, '')
+          .replace(/[^\w\s]/g, "")
           .trim();
 
         let matchCount = 0;
@@ -133,7 +126,7 @@ export const duplicateCheckStep = createStep({
       const rows = result as unknown as Array<{ similarity?: number; content_text?: string }>;
       const row = rows[0];
       if (row?.similarity && row.similarity > 0.85) {
-        const preview = row.content_text?.slice(0, 50) || 'unknown';
+        const preview = row.content_text?.slice(0, 50) || "unknown";
         return {
           ...inputData,
           isDuplicate: true,

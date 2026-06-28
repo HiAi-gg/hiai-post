@@ -1,1 +1,1 @@
-export { authStore, type User } from '@hiai/ui';
+export { authStore, type User } from "@hiai/ui";

@@ -1,42 +1,42 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import type { PageData } from './$types';
+import { goto } from "$app/navigation";
+import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
-  let post = $state(data.post);
-  let saving = $state(false);
+let { data }: { data: PageData } = $props();
+let post = $state(data.post);
+let _saving = $state(false);
 
-  async function updatePost() {
-    if (!post) return;
-    saving = true;
-    try {
-      const res = await fetch(`/api/v1/posts/${post.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contentText: post.contentText, scheduledAt: post.scheduledAt }),
-      });
-      if (res.ok) goto('/posts');
-    } finally {
-      saving = false;
-    }
+async function _updatePost() {
+  if (!post) return;
+  _saving = true;
+  try {
+    const res = await fetch(`/api/v1/posts/${post.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentText: post.contentText, scheduledAt: post.scheduledAt }),
+    });
+    if (res.ok) goto("/posts");
+  } finally {
+    _saving = false;
   }
+}
 
-  async function deletePost() {
-    if (!post || !confirm('Delete this post?')) return;
-    await fetch(`/api/v1/posts/${post.id}`, { method: 'DELETE' });
-    goto('/posts');
-  }
+async function _deletePost() {
+  if (!post || !confirm("Delete this post?")) return;
+  await fetch(`/api/v1/posts/${post.id}`, { method: "DELETE" });
+  goto("/posts");
+}
 
-  async function publishNow() {
-    if (!post) return;
-    saving = true;
-    try {
-      const res = await fetch(`/api/v1/posts/${post.id}/publish`, { method: 'POST' });
-      if (res.ok) goto('/posts');
-    } finally {
-      saving = false;
-    }
+async function _publishNow() {
+  if (!post) return;
+  _saving = true;
+  try {
+    const res = await fetch(`/api/v1/posts/${post.id}/publish`, { method: "POST" });
+    if (res.ok) goto("/posts");
+  } finally {
+    _saving = false;
   }
+}
 </script>
 
 <svelte:head>

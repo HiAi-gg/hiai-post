@@ -2,7 +2,7 @@
  * LinkedIn publisher — publish posts via LinkedIn Marketing API.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface LinkedInPublishOptions {
   accessToken: string;
@@ -26,30 +26,27 @@ async function registerImageUpload(
   accessToken: string,
   personUrn: string
 ): Promise<{ uploadUrl: string; imageUrn: string }> {
-  const response = await fetch(
-    'https://api.linkedin.com/v2/assets?action=registerUpload',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0',
+  const response = await fetch("https://api.linkedin.com/v2/assets?action=registerUpload", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      "X-Restli-Protocol-Version": "2.0.0",
+    },
+    body: JSON.stringify({
+      registerUploadRequest: {
+        recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+        owner: personUrn,
+        serviceRelationships: [
+          {
+            relationshipType: "OWNER",
+            identifier: "urn:li:userGeneratedContent",
+          },
+        ],
       },
-      body: JSON.stringify({
-        registerUploadRequest: {
-          recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
-          owner: personUrn,
-          serviceRelationships: [
-            {
-              relationshipType: 'OWNER',
-              identifier: 'urn:li:userGeneratedContent',
-            },
-          ],
-        },
-      }),
-      signal: AbortSignal.timeout(15000),
-    }
-  );
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
 
   if (!response.ok) {
     const error = await response.text();
@@ -59,7 +56,7 @@ async function registerImageUpload(
   const data = (await response.json()) as {
     value: {
       uploadMechanism: {
-        'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest': {
+        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest": {
           uploadUrl: string;
         };
       };
@@ -69,9 +66,8 @@ async function registerImageUpload(
 
   return {
     uploadUrl:
-      data.value.uploadMechanism[
-        'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'
-      ].uploadUrl,
+      data.value.uploadMechanism["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]
+        .uploadUrl,
     imageUrn: data.value.asset,
   };
 }
@@ -90,9 +86,9 @@ async function uploadImage(uploadUrl: string, imageUrl: string): Promise<void> {
   const imageBlob = await imageResponse.blob();
 
   const uploadResponse = await fetch(uploadUrl, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
-      'Content-Type': 'application/octet-stream',
+      "Content-Type": "application/octet-stream",
     },
     body: imageBlob,
     signal: AbortSignal.timeout(60000),
@@ -111,15 +107,16 @@ export async function publishToLinkedIn(
   options: LinkedInPublishOptions
 ): Promise<LinkedInPublishResult> {
   try {
-    const { accessToken, personUrn, content, mediaUrl, title, description } =
-      options;
+    const { accessToken, personUrn, content, mediaUrl, title, description } = options;
 
     let imageUrn: string | undefined;
 
     // Upload image if provided
     if (mediaUrl) {
-      const { uploadUrl, imageUrn: registeredUrn } =
-        await registerImageUpload(accessToken, personUrn);
+      const { uploadUrl, imageUrn: registeredUrn } = await registerImageUpload(
+        accessToken,
+        personUrn
+      );
       await uploadImage(uploadUrl, mediaUrl);
       imageUrn = registeredUrn;
     }
@@ -127,21 +124,21 @@ export async function publishToLinkedIn(
     // Build the post body
     const body: Record<string, unknown> = {
       author: personUrn,
-      lifecycleState: 'PUBLISHED',
+      lifecycleState: "PUBLISHED",
       specificContent: {
-        'com.linkedin.ugc.ShareContent': {
+        "com.linkedin.ugc.ShareContent": {
           shareCommentary: {
             text: content,
           },
-          shareMediaCategory: imageUrn ? 'IMAGE' : 'NONE',
+          shareMediaCategory: imageUrn ? "IMAGE" : "NONE",
           ...(imageUrn
             ? {
                 media: [
                   {
-                    status: 'READY',
-                    description: { text: description || title || '' },
+                    status: "READY",
+                    description: { text: description || title || "" },
                     media: imageUrn,
-                    title: { text: title || '' },
+                    title: { text: title || "" },
                   },
                 ],
               }
@@ -149,16 +146,16 @@ export async function publishToLinkedIn(
         },
       },
       visibility: {
-        'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+        "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
       },
     };
 
-    const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
-      method: 'POST',
+    const response = await fetch("https://api.linkedin.com/v2/ugcPosts", {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0',
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0",
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
@@ -166,7 +163,7 @@ export async function publishToLinkedIn(
 
     if (!response.ok) {
       const error = await response.text();
-      logger.error({ status: response.status, error }, 'LinkedIn publish failed');
+      logger.error({ status: response.status, error }, "LinkedIn publish failed");
       return {
         success: false,
         error: `LinkedIn API error: ${response.status}`,
@@ -174,14 +171,14 @@ export async function publishToLinkedIn(
     }
 
     // LinkedIn returns 201 with the post ID in the x-restli-id header
-    const postId = response.headers.get('x-restli-id') || undefined;
+    const postId = response.headers.get("x-restli-id") || undefined;
 
     return { success: true, postId };
   } catch (error) {
-    logger.error({ error }, 'LinkedIn publish failed');
+    logger.error({ error }, "LinkedIn publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

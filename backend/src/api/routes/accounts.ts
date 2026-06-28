@@ -1,21 +1,20 @@
-import { Elysia } from 'elysia';
-import { db } from '../../lib/db.js';
-import { socialAccounts } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
-import { tenantMiddleware } from '../middleware/tenant.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { createRateLimiter } from '../middleware/rateLimiter.js';
-import { decryptToken } from '../../lib/encryption.js';
-import { logger } from '../../lib/logger.js';
+import { and, eq } from "drizzle-orm";
+import { Elysia } from "elysia";
+import { socialAccounts } from "../../db/schema.js";
+import { db } from "../../lib/db.js";
+import { logger } from "../../lib/logger.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { tenantMiddleware } from "../middleware/tenant.js";
 
-const log = logger.child({ module: 'accounts-route' });
+const _log = logger.child({ module: "accounts-route" });
 
-export const accountsRoutes = new Elysia({ prefix: '/api/v1/accounts' })
-  .use(createRateLimiter('authenticated'))
+export const accountsRoutes = new Elysia({ prefix: "/api/v1/accounts" })
+  .use(createRateLimiter("authenticated"))
   .use(authMiddleware)
   .use(tenantMiddleware)
   // List connected social accounts
-  .get('/', async (ctx: any) => {
+  .get("/", async (ctx: any) => {
     const tenantId = (ctx as any).tenantId;
     const accounts = await db
       .select({
@@ -34,7 +33,7 @@ export const accountsRoutes = new Elysia({ prefix: '/api/v1/accounts' })
     return { accounts };
   })
   // Get single account
-  .get('/:id', async (ctx: any) => {
+  .get("/:id", async (ctx: any) => {
     const { params, set } = ctx;
     const tenantId = (ctx as any).tenantId;
     const [account] = await db
@@ -56,12 +55,12 @@ export const accountsRoutes = new Elysia({ prefix: '/api/v1/accounts' })
 
     if (!account) {
       set.status = 404;
-      return { error: 'Account not found' };
+      return { error: "Account not found" };
     }
     return { account };
   })
   // Disconnect account
-  .delete('/:id', async ({ params, tenantId, set }: any) => {
+  .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db
       .delete(socialAccounts)
       .where(and(eq(socialAccounts.id, params.id), eq(socialAccounts.tenantId, tenantId)))
@@ -69,7 +68,7 @@ export const accountsRoutes = new Elysia({ prefix: '/api/v1/accounts' })
 
     if (!deleted) {
       set.status = 404;
-      return { error: 'Account not found' };
+      return { error: "Account not found" };
     }
-    return { success: true, message: 'Account disconnected' };
+    return { success: true, message: "Account disconnected" };
   });

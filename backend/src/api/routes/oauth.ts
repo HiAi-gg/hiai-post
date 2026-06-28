@@ -1,16 +1,15 @@
-import { Elysia } from 'elysia';
-import { config as appConfig } from '../../lib/config.js';
-import { db } from '../../lib/db.js';
-import { socialAccounts } from '../../db/schema.js';
-import { eq, and } from 'drizzle-orm';
-import { tenantMiddleware } from '../middleware/tenant.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { createRateLimiter } from '../middleware/rateLimiter.js';
-import { encryptToken } from '../../lib/encryption.js';
-import { generateState, validateState } from '../../lib/oauth-state.js';
-import { logger } from '../../lib/logger.js';
+import { Elysia } from "elysia";
+import { socialAccounts } from "../../db/schema.js";
+import { config as appConfig } from "../../lib/config.js";
+import { db } from "../../lib/db.js";
+import { encryptToken } from "../../lib/encryption.js";
+import { logger } from "../../lib/logger.js";
+import { generateState, validateState } from "../../lib/oauth-state.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { tenantMiddleware } from "../middleware/tenant.js";
 
-const log = logger.child({ module: 'oauth-route' });
+const log = logger.child({ module: "oauth-route" });
 
 interface OAuthConfig {
   authUrl: string;
@@ -20,47 +19,47 @@ interface OAuthConfig {
 
 const OAUTH_CONFIGS: Record<string, OAuthConfig> = {
   instagram: {
-    authUrl: 'https://api.instagram.com/oauth/authorize',
-    tokenUrl: 'https://api.instagram.com/oauth/access_token',
-    scopes: ['instagram_basic', 'instagram_content_publish', 'instagram_manage_insights'],
+    authUrl: "https://api.instagram.com/oauth/authorize",
+    tokenUrl: "https://api.instagram.com/oauth/access_token",
+    scopes: ["instagram_basic", "instagram_content_publish", "instagram_manage_insights"],
   },
   facebook: {
-    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-    scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
+    authUrl: "https://www.facebook.com/v19.0/dialog/oauth",
+    tokenUrl: "https://graph.facebook.com/v19.0/oauth/access_token",
+    scopes: ["pages_manage_posts", "pages_read_engagement", "pages_show_list"],
   },
   x: {
-    authUrl: 'https://x.com/i/oauth2/authorize',
-    tokenUrl: 'https://api.x.com/2/oauth2/token',
-    scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
+    authUrl: "https://x.com/i/oauth2/authorize",
+    tokenUrl: "https://api.x.com/2/oauth2/token",
+    scopes: ["tweet.read", "tweet.write", "users.read", "offline.access"],
   },
   linkedin: {
-    authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
-    tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-    scopes: ['w_member_social', 'r_liteprofile', 'r_emailaddress'],
+    authUrl: "https://www.linkedin.com/oauth/v2/authorization",
+    tokenUrl: "https://www.linkedin.com/oauth/v2/accessToken",
+    scopes: ["w_member_social", "r_liteprofile", "r_emailaddress"],
   },
   tiktok: {
-    authUrl: 'https://www.tiktok.com/v2/auth/authorize/',
-    tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
-    scopes: ['user.info.basic', 'video.publish', 'video.list'],
+    authUrl: "https://www.tiktok.com/v2/auth/authorize/",
+    tokenUrl: "https://open.tiktokapis.com/v2/oauth/token/",
+    scopes: ["user.info.basic", "video.publish", "video.list"],
   },
   threads: {
-    authUrl: 'https://threads.net/oauth/authorize',
-    tokenUrl: 'https://graph.threads.net/oauth/access_token',
-    scopes: ['threads_basic', 'threads_content_publish', 'threads_manage_insights'],
+    authUrl: "https://threads.net/oauth/authorize",
+    tokenUrl: "https://graph.threads.net/oauth/access_token",
+    scopes: ["threads_basic", "threads_content_publish", "threads_manage_insights"],
   },
   pinterest: {
-    authUrl: 'https://www.pinterest.com/oauth/',
-    tokenUrl: 'https://api.pinterest.com/v5/oauth/token',
-    scopes: ['boards:read', 'pins:read', 'pins:write'],
+    authUrl: "https://www.pinterest.com/oauth/",
+    tokenUrl: "https://api.pinterest.com/v5/oauth/token",
+    scopes: ["boards:read", "pins:read", "pins:write"],
   },
   youtube: {
-    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenUrl: 'https://oauth2.googleapis.com/token',
+    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenUrl: "https://oauth2.googleapis.com/token",
     scopes: [
-      'https://www.googleapis.com/auth/youtube.upload',
-      'https://www.googleapis.com/auth/youtube.force-ssl',
-      'https://www.googleapis.com/auth/youtube.readonly',
+      "https://www.googleapis.com/auth/youtube.upload",
+      "https://www.googleapis.com/auth/youtube.force-ssl",
+      "https://www.googleapis.com/auth/youtube.readonly",
     ],
   },
 };
@@ -76,7 +75,7 @@ function getClientId(platform: string): string {
     pinterest: appConfig.PINTEREST_APP_ID,
     youtube: appConfig.YOUTUBE_CLIENT_ID,
   };
-  return map[platform] || '';
+  return map[platform] || "";
 }
 
 function getClientSecret(platform: string): string {
@@ -90,11 +89,11 @@ function getClientSecret(platform: string): string {
     pinterest: appConfig.PINTEREST_APP_SECRET,
     youtube: appConfig.YOUTUBE_CLIENT_SECRET,
   };
-  return map[platform] || '';
+  return map[platform] || "";
 }
 
-export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
-  .use(createRateLimiter('authenticated') as any)
+export const oauthRoutes = new Elysia({ prefix: "/api/v1/oauth" })
+  .use(createRateLimiter("authenticated") as any)
   .use(authMiddleware)
   .use(tenantMiddleware)
   .get("/:platform/connect", async ({ params, set, tenantId }: any) => {
@@ -117,48 +116,48 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
     });
 
     const authUrl = new URL(platformConfig.authUrl);
-    authUrl.searchParams.set('client_id', clientId);
-    authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('scope', platformConfig.scopes.join(','));
-    authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set("client_id", clientId);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("scope", platformConfig.scopes.join(","));
+    authUrl.searchParams.set("state", state);
+    authUrl.searchParams.set("response_type", "code");
 
-    if (params.platform === 'x') {
-      authUrl.searchParams.set('code_challenge', state);
-      authUrl.searchParams.set('code_challenge_method', 'plain');
+    if (params.platform === "x") {
+      authUrl.searchParams.set("code_challenge", state);
+      authUrl.searchParams.set("code_challenge_method", "plain");
     }
 
     return { authUrl: authUrl.toString(), state };
   })
-  .get('/:platform/callback', async ({ params, query, tenantId, set }: any) => {
+  .get("/:platform/callback", async ({ params, query, tenantId, set }: any) => {
     const code = query.code as string;
     if (!code) {
       set.status = 400;
-      return { error: 'Missing authorization code' };
+      return { error: "Missing authorization code" };
     }
 
     const stateParam = query.state as string;
     const statePayload = await validateState(stateParam);
     if (!statePayload) {
-      log.warn({ platform: params.platform }, 'OAuth callback rejected: invalid state');
+      log.warn({ platform: params.platform }, "OAuth callback rejected: invalid state");
       set.status = 400;
-      return { error: 'Invalid or expired state parameter' };
+      return { error: "Invalid or expired state parameter" };
     }
     if (statePayload.platform !== params.platform) {
       log.warn(
         { expected: params.platform, got: statePayload.platform },
-        'OAuth callback rejected: state platform mismatch'
+        "OAuth callback rejected: state platform mismatch"
       );
       set.status = 400;
-      return { error: 'State platform mismatch' };
+      return { error: "State platform mismatch" };
     }
     if (statePayload.tenantId && tenantId && statePayload.tenantId !== tenantId) {
       log.warn(
         { stateTenant: statePayload.tenantId, sessionTenant: tenantId },
-        'OAuth callback rejected: tenant mismatch'
+        "OAuth callback rejected: tenant mismatch"
       );
       set.status = 403;
-      return { error: 'Tenant mismatch' };
+      return { error: "Tenant mismatch" };
     }
 
     const platformConfig = OAUTH_CONFIGS[params.platform];
@@ -174,30 +173,30 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
     try {
       // Exchange code for token
       const body: Record<string, string> = {
-        grant_type: 'authorization_code',
+        grant_type: "authorization_code",
         code,
         redirect_uri: redirectUri,
         client_id: clientId,
         client_secret: clientSecret,
       };
 
-      if (params.platform === 'x') {
-        body.code_verifier = 'challenge';
+      if (params.platform === "x") {
+        body.code_verifier = "challenge";
       }
 
       // Pinterest requires HTTP Basic Auth for token exchange; client_secret must NOT be in body.
       const tokenHeaders: Record<string, string> = {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       };
-      if (params.platform === 'pinterest') {
-        const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-        tokenHeaders['Authorization'] = `Basic ${basic}`;
+      if (params.platform === "pinterest") {
+        const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+        tokenHeaders.Authorization = `Basic ${basic}`;
         delete body.client_id;
         delete body.client_secret;
       }
 
       const tokenResponse = await fetch(platformConfig.tokenUrl, {
-        method: 'POST',
+        method: "POST",
         headers: tokenHeaders,
         body: new URLSearchParams(body),
         signal: AbortSignal.timeout(10000),
@@ -205,9 +204,9 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
 
       if (!tokenResponse.ok) {
         const err = await tokenResponse.text();
-        log.error({ err, platform: params.platform }, 'Token exchange failed');
+        log.error({ err, platform: params.platform }, "Token exchange failed");
         set.status = 400;
-        return { error: 'Failed to exchange authorization code' };
+        return { error: "Failed to exchange authorization code" };
       }
 
       const tokenData = (await tokenResponse.json()) as Record<string, unknown>;
@@ -217,12 +216,12 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
       const scope = tokenData.scope as string | undefined;
 
       // Fetch user info from platform
-      let accountId = '';
-      let username = '';
-      let displayName = '';
-      let avatarUrl = '';
+      let accountId = "";
+      let username = "";
+      let displayName = "";
+      let avatarUrl = "";
 
-      if (params.platform === 'instagram' || params.platform === 'facebook') {
+      if (params.platform === "instagram" || params.platform === "facebook") {
         const meRes = await fetch(`https://graph.facebook.com/me?fields=id,name,picture`, {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal: AbortSignal.timeout(10000),
@@ -230,11 +229,11 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
         if (meRes.ok) {
           const me = (await meRes.json()) as Record<string, unknown>;
           accountId = String(me.id);
-          displayName = String(me.name || '');
+          displayName = String(me.name || "");
         }
-      } else if (params.platform === 'threads') {
+      } else if (params.platform === "threads") {
         // Threads returns user_id inline with the token; profile comes from Meta Graph API.
-        const threadsUserId = String(tokenData.user_id || '');
+        const threadsUserId = String(tokenData.user_id || "");
         if (threadsUserId) {
           accountId = threadsUserId;
           const meRes = await fetch(
@@ -246,47 +245,47 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
           );
           if (meRes.ok) {
             const me = (await meRes.json()) as Record<string, unknown>;
-            username = String(me.username || '');
-            displayName = String(me.name || '');
-            avatarUrl = String(me.threads_profile_picture_url || '');
+            username = String(me.username || "");
+            displayName = String(me.name || "");
+            avatarUrl = String(me.threads_profile_picture_url || "");
           }
         }
-      } else if (params.platform === 'pinterest') {
-        const meRes = await fetch('https://api.pinterest.com/v5/user_account', {
+      } else if (params.platform === "pinterest") {
+        const meRes = await fetch("https://api.pinterest.com/v5/user_account", {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal: AbortSignal.timeout(10000),
         });
         if (meRes.ok) {
           const me = (await meRes.json()) as Record<string, unknown>;
-          accountId = String(me.id || '');
-          username = String(me.username || '');
-          displayName = String(me.business_name || me.username || '');
-          avatarUrl = String(me.profile_image || '');
+          accountId = String(me.id || "");
+          username = String(me.username || "");
+          displayName = String(me.business_name || me.username || "");
+          avatarUrl = String(me.profile_image || "");
         }
-      } else if (params.platform === 'x') {
-        const meRes = await fetch('https://api.x.com/2/users/me', {
+      } else if (params.platform === "x") {
+        const meRes = await fetch("https://api.x.com/2/users/me", {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal: AbortSignal.timeout(10000),
         });
         if (meRes.ok) {
           const me = (await meRes.json()) as { data?: Record<string, unknown> };
-          accountId = String(me.data?.id || '');
-          username = String(me.data?.username || '');
-          displayName = String(me.data?.name || '');
+          accountId = String(me.data?.id || "");
+          username = String(me.data?.username || "");
+          displayName = String(me.data?.name || "");
         }
-      } else if (params.platform === 'linkedin') {
-        const meRes = await fetch('https://api.linkedin.com/v2/me', {
+      } else if (params.platform === "linkedin") {
+        const meRes = await fetch("https://api.linkedin.com/v2/me", {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal: AbortSignal.timeout(10000),
         });
         if (meRes.ok) {
           const me = (await meRes.json()) as Record<string, unknown>;
-          accountId = String(me.id || '');
-          displayName = `${me.localizedFirstName || ''} ${me.localizedLastName || ''}`.trim();
+          accountId = String(me.id || "");
+          displayName = `${me.localizedFirstName || ""} ${me.localizedLastName || ""}`.trim();
         }
-      } else if (params.platform === 'youtube') {
+      } else if (params.platform === "youtube") {
         const meRes = await fetch(
-          'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+          "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
           {
             headers: { Authorization: `Bearer ${accessToken}` },
             signal: AbortSignal.timeout(10000),
@@ -306,9 +305,9 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
           const channel = me.items?.[0];
           if (channel) {
             accountId = channel.id;
-            displayName = String(channel.snippet?.title || '');
-            username = String(channel.snippet?.customUrl || '');
-            avatarUrl = String(channel.snippet?.thumbnails?.default?.url || '');
+            displayName = String(channel.snippet?.title || "");
+            username = String(channel.snippet?.customUrl || "");
+            avatarUrl = String(channel.snippet?.thumbnails?.default?.url || "");
           }
         }
       }
@@ -326,16 +325,19 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
           accessTokenEncrypted: encryptToken(accessToken),
           refreshTokenEncrypted: refreshToken ? encryptToken(refreshToken) : null,
           tokenExpiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000) : null,
-          scopes: scope ? scope.split(' ') : platformConfig.scopes,
-          status: 'active',
+          scopes: scope ? scope.split(" ") : platformConfig.scopes,
+          status: "active",
         })
         .returning();
 
-      log.info({ platform: params.platform, accountId }, 'Social account connected');
-      return { success: true, account: { id: account.id, platform: account.platform, username: account.username } };
+      log.info({ platform: params.platform, accountId }, "Social account connected");
+      return {
+        success: true,
+        account: { id: account.id, platform: account.platform, username: account.username },
+      };
     } catch (err) {
-      log.error({ err, platform: params.platform }, 'OAuth callback error');
+      log.error({ err, platform: params.platform }, "OAuth callback error");
       set.status = 500;
-      return { error: 'Failed to complete OAuth flow' };
+      return { error: "Failed to complete OAuth flow" };
     }
   });

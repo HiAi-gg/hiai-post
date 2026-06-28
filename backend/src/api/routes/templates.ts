@@ -1,21 +1,21 @@
-import { Elysia } from 'elysia';
-import { db } from '../../lib/db.js';
-import { postTemplates } from '../../db/schema.js';
-import { eq, and, desc, sql } from 'drizzle-orm';
-import { tenantMiddleware } from '../middleware/tenant.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { createRateLimiter } from '../middleware/rateLimiter.js';
-import { createTemplateSchema, paginationSchema } from '../validation/schemas.js';
-import { logger } from '../../lib/logger.js';
+import { and, desc, eq, sql } from "drizzle-orm";
+import { Elysia } from "elysia";
+import { postTemplates } from "../../db/schema.js";
+import { db } from "../../lib/db.js";
+import { logger } from "../../lib/logger.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { tenantMiddleware } from "../middleware/tenant.js";
+import { createTemplateSchema, paginationSchema } from "../validation/schemas.js";
 
-const log = logger.child({ module: 'templates-route' });
+const _log = logger.child({ module: "templates-route" });
 
-export const templatesRoutes = new Elysia({ prefix: '/api/v1/templates' })
-  .use(createRateLimiter('authenticated') as any)
+export const templatesRoutes = new Elysia({ prefix: "/api/v1/templates" })
+  .use(createRateLimiter("authenticated") as any)
   .use(authMiddleware)
   .use(tenantMiddleware)
   // List templates
-  .get('/', async ({ tenantId, query }: any) => {
+  .get("/", async ({ tenantId, query }: any) => {
     const { page, limit } = paginationSchema.parse(query);
     const platform = query.platform as string | undefined;
 
@@ -42,7 +42,7 @@ export const templatesRoutes = new Elysia({ prefix: '/api/v1/templates' })
     };
   })
   // Get single template
-  .get('/:id', async ({ params, tenantId, set }: any) => {
+  .get("/:id", async ({ params, tenantId, set }: any) => {
     const [template] = await db
       .select()
       .from(postTemplates)
@@ -51,12 +51,12 @@ export const templatesRoutes = new Elysia({ prefix: '/api/v1/templates' })
 
     if (!template) {
       set.status = 404;
-      return { error: 'Template not found' };
+      return { error: "Template not found" };
     }
     return { template };
   })
   // Create template
-  .post('/', async ({ body, tenantId, set }: any) => {
+  .post("/", async ({ body, tenantId, set }: any) => {
     const input = createTemplateSchema.parse(body);
     const [template] = await db
       .insert(postTemplates)
@@ -74,7 +74,7 @@ export const templatesRoutes = new Elysia({ prefix: '/api/v1/templates' })
     return { template };
   })
   // Update template
-  .put('/:id', async ({ params, body, tenantId, set }: any) => {
+  .put("/:id", async ({ params, body, tenantId, set }: any) => {
     const input = createTemplateSchema.partial().parse(body);
     const [updated] = await db
       .update(postTemplates)
@@ -84,12 +84,12 @@ export const templatesRoutes = new Elysia({ prefix: '/api/v1/templates' })
 
     if (!updated) {
       set.status = 404;
-      return { error: 'Template not found' };
+      return { error: "Template not found" };
     }
     return { template: updated };
   })
   // Delete template
-  .delete('/:id', async ({ params, tenantId, set }: any) => {
+  .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db
       .delete(postTemplates)
       .where(and(eq(postTemplates.id, params.id), eq(postTemplates.tenantId, tenantId)))
@@ -97,7 +97,7 @@ export const templatesRoutes = new Elysia({ prefix: '/api/v1/templates' })
 
     if (!deleted) {
       set.status = 404;
-      return { error: 'Template not found' };
+      return { error: "Template not found" };
     }
     return { success: true };
   });

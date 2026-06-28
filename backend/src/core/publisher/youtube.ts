@@ -16,7 +16,6 @@
  * route layer — the publisher itself only sees plaintext access tokens.
  */
 
-import { logger } from '../../lib/logger.js';
 import {
   fetchVideoFromUrl,
   getYouTubeDefaultPrivacy,
@@ -26,9 +25,10 @@ import {
   uploadYouTubeVideo,
   type YouTubeUploadResult,
   type YouTubeVideoKind,
-} from '../../integrations/youtube/client.js';
+} from "../../integrations/youtube/client.js";
+import { logger } from "../../lib/logger.js";
 
-export type { YouTubeVideoKind, YouTubeUploadResult };
+export type { YouTubeUploadResult, YouTubeVideoKind };
 
 interface YouTubeBaseOptions {
   accessToken: string;
@@ -37,7 +37,7 @@ interface YouTubeBaseOptions {
   description: string;
   tags?: string[];
   categoryId?: string;
-  privacyStatus?: 'public' | 'unlisted' | 'private';
+  privacyStatus?: "public" | "unlisted" | "private";
   madeForKids?: boolean;
   thumbnailUrl?: string;
   defaultLanguage?: string;
@@ -67,15 +67,15 @@ export interface YouTubePublishResult {
   success: boolean;
   videoId?: string;
   status?: string;
-  uploadStatus?: YouTubeUploadResult['uploadStatus'];
+  uploadStatus?: YouTubeUploadResult["uploadStatus"];
   kind?: YouTubeVideoKind;
   error?: string;
 }
 
 function ensureShortsFriendlyTitle(title: string, kind: YouTubeVideoKind): string {
-  if (kind !== 'short') return title;
+  if (kind !== "short") return title;
   const trimmed = title.trim();
-  if (trimmed.toLowerCase().includes('#shorts')) return trimmed.slice(0, 100);
+  if (trimmed.toLowerCase().includes("#shorts")) return trimmed.slice(0, 100);
   return `${trimmed} #Shorts`.slice(0, 100);
 }
 
@@ -90,14 +90,15 @@ async function applyThumbnailIfPresent(
     if (!thumbRes.ok) {
       logger.warn(
         { status: thumbRes.status, thumbnailUrl },
-        'YouTube thumbnail fetch failed, skipping'
+        "YouTube thumbnail fetch failed, skipping"
       );
       return;
     }
     const imageBuffer = await thumbRes.arrayBuffer();
-    const rawType = thumbRes.headers.get('content-type') ?? 'image/jpeg';
-    const mimeType: 'image/jpeg' | 'image/png' =
-      rawType.includes('png') ? 'image/png' : 'image/jpeg';
+    const rawType = thumbRes.headers.get("content-type") ?? "image/jpeg";
+    const mimeType: "image/jpeg" | "image/png" = rawType.includes("png")
+      ? "image/png"
+      : "image/jpeg";
     await setYouTubeThumbnail({
       accessToken,
       videoId,
@@ -105,7 +106,7 @@ async function applyThumbnailIfPresent(
       mimeType,
     });
   } catch (thumbErr) {
-    logger.warn({ err: thumbErr }, 'YouTube thumbnail upload failed, continuing');
+    logger.warn({ err: thumbErr }, "YouTube thumbnail upload failed, continuing");
   }
 }
 
@@ -133,12 +134,12 @@ export async function publishToYouTube(
   } = options;
 
   if (!videoUrl) {
-    return { success: false, error: 'videoUrl is required for YouTube upload' };
+    return { success: false, error: "videoUrl is required for YouTube upload" };
   }
 
   try {
     const resolvedKind: YouTubeVideoKind =
-      kind ?? (durationSeconds !== undefined ? inferYouTubeVideoKind(durationSeconds) : 'long');
+      kind ?? (durationSeconds !== undefined ? inferYouTubeVideoKind(durationSeconds) : "long");
 
     const { buffer, mimeType } = await fetchVideoFromUrl(videoUrl);
 
@@ -170,10 +171,10 @@ export async function publishToYouTube(
       kind: resolvedKind,
     };
   } catch (error) {
-    logger.error({ err: error, kind: options.kind }, 'YouTube publish failed');
+    logger.error({ err: error, kind: options.kind }, "YouTube publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }
@@ -193,7 +194,7 @@ export async function publishToYouTubeShorts(
 ): Promise<YouTubePublishResult> {
   return publishToYouTube({
     ...options,
-    kind: 'short',
+    kind: "short",
   });
 }
 
@@ -209,7 +210,7 @@ export async function publishToYouTubeLong(
 ): Promise<YouTubePublishResult> {
   return publishToYouTube({
     ...options,
-    kind: 'long',
+    kind: "long",
   });
 }
 

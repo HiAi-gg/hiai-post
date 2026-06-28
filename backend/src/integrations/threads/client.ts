@@ -1,15 +1,5 @@
-/**
- * Threads OAuth integration — uses Instagram/Threads Graph API auth.
- * OAuth: https://threads.net/oauth/authorize
- * Token exchange: https://graph.threads.net/oauth/access_token
- * Scopes: threads_basic, threads_content_publish, threads_manage_insights
- */
-
-import { encryptToken } from '../../lib/encryption.js';
-import { logger } from '../../lib/logger.js';
-
-const THREADS_AUTH_URL = 'https://threads.net/oauth/authorize';
-const THREADS_TOKEN_URL = 'https://graph.threads.net/oauth/access_token';
+const THREADS_AUTH_URL = "https://threads.net/oauth/authorize";
+const THREADS_TOKEN_URL = "https://graph.threads.net/oauth/access_token";
 
 export interface ThreadsOAuthConfig {
   clientId: string;
@@ -24,8 +14,8 @@ export function getThreadsAuthUrl(config: ThreadsOAuthConfig, state: string): st
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
-    scope: 'threads_basic,threads_content_publish,threads_manage_insights',
-    response_type: 'code',
+    scope: "threads_basic,threads_content_publish,threads_manage_insights",
+    response_type: "code",
     state,
   });
   return `${THREADS_AUTH_URL}?${params}`;
@@ -41,14 +31,14 @@ export async function exchangeThreadsCode(
   const params = new URLSearchParams({
     client_id: config.clientId,
     client_secret: config.clientSecret,
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
     redirect_uri: config.redirectUri,
     code,
   });
 
   const response = await fetch(THREADS_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
     signal: AbortSignal.timeout(15000),
   });

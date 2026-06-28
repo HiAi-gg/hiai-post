@@ -1,34 +1,42 @@
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = async ({ fetch, url }) => {
-  const tenantId = url.searchParams.get('tenantId') || '';
-  const from = url.searchParams.get('from') || '';
-  const to = url.searchParams.get('to') || '';
+  const tenantId = url.searchParams.get("tenantId") || "";
+  const from = url.searchParams.get("from") || "";
+  const to = url.searchParams.get("to") || "";
 
   const qs = new URLSearchParams();
-  if (tenantId) qs.set('tenantId', tenantId);
-  if (from) qs.set('from', from);
-  if (to) qs.set('to', to);
+  if (tenantId) qs.set("tenantId", tenantId);
+  if (from) qs.set("from", from);
+  if (to) qs.set("to", to);
   const query = qs.toString();
 
-  const [overviewRes, platformsRes, topPostsRes, postsRes, bestTimesRes] = await Promise.allSettled([
-    fetch(`/api/v1/analytics/overview?${query}`).then(r => r.json()),
-    fetch(`/api/v1/analytics/platforms?${query}`).then(r => r.json()),
-    fetch(`/api/v1/analytics/top-posts?${query}&limit=10`).then(r => r.json()),
-    fetch(`/api/v1/posts?limit=50&status=published`).then(r => r.json()),
-    fetch(`/api/v1/analytics/best-times?${query}`).then(r => r.json()),
-  ]);
+  const [overviewRes, platformsRes, topPostsRes, postsRes, bestTimesRes] = await Promise.allSettled(
+    [
+      fetch(`/api/v1/analytics/overview?${query}`).then((r) => r.json()),
+      fetch(`/api/v1/analytics/platforms?${query}`).then((r) => r.json()),
+      fetch(`/api/v1/analytics/top-posts?${query}&limit=10`).then((r) => r.json()),
+      fetch(`/api/v1/posts?limit=50&status=published`).then((r) => r.json()),
+      fetch(`/api/v1/analytics/best-times?${query}`).then((r) => r.json()),
+    ]
+  );
 
-  const overview = overviewRes.status === 'fulfilled' ? overviewRes.value?.metrics ?? {} : {};
-  const platforms = platformsRes.status === 'fulfilled' ? platformsRes.value?.platforms ?? [] : [];
-  const topPosts = topPostsRes.status === 'fulfilled' ? topPostsRes.value?.posts ?? [] : [];
-  const recentPosts = postsRes.status === 'fulfilled' ? postsRes.value?.data ?? [] : [];
-  const bestTimes = bestTimesRes.status === 'fulfilled' ? bestTimesRes.value?.slots ?? [] : [];
+  const overview = overviewRes.status === "fulfilled" ? (overviewRes.value?.metrics ?? {}) : {};
+  const platforms =
+    platformsRes.status === "fulfilled" ? (platformsRes.value?.platforms ?? []) : [];
+  const topPosts = topPostsRes.status === "fulfilled" ? (topPostsRes.value?.posts ?? []) : [];
+  const recentPosts = postsRes.status === "fulfilled" ? (postsRes.value?.data ?? []) : [];
+  const bestTimes = bestTimesRes.status === "fulfilled" ? (bestTimesRes.value?.slots ?? []) : [];
 
   // Build engagement timeline from recent posts (group by day)
-  const timeline: Record<string, { impressions: number; reach: number; engagement: number; count: number }> = {};
+  const timeline: Record<
+    string,
+    { impressions: number; reach: number; engagement: number; count: number }
+  > = {};
   for (const post of recentPosts) {
-    const day = post.publishedAt ? new Date(post.publishedAt).toISOString().slice(0, 10) : 'unknown';
+    const day = post.publishedAt
+      ? new Date(post.publishedAt).toISOString().slice(0, 10)
+      : "unknown";
     if (!timeline[day]) timeline[day] = { impressions: 0, reach: 0, engagement: 0, count: 0 };
     timeline[day].count++;
   }
@@ -48,7 +56,7 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
   const bestHours = Object.entries(hourCounts)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
-    .map(([hour, count]) => ({ hour: parseInt(hour), count }));
+    .map(([hour, count]) => ({ hour: parseInt(hour, 10), count }));
 
   return {
     overview: {
@@ -62,8 +70,8 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
       totalLikes: overview.totalLikes ?? 0,
       totalComments: overview.totalComments ?? 0,
       totalShares: overview.totalShares ?? 0,
-      topPlatform: overview.topPlatform ?? 'none',
-      bestPostingTime: overview.bestPostingTime ?? 'N/A',
+      topPlatform: overview.topPlatform ?? "none",
+      bestPostingTime: overview.bestPostingTime ?? "N/A",
     },
     platforms,
     topPosts,

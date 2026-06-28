@@ -1,15 +1,5 @@
-/**
- * Pinterest OAuth integration.
- * OAuth: https://www.pinterest.com/oauth/
- * Token: https://api.pinterest.com/v5/oauth/token
- * Scopes: boards:read, pins:read, pins:write
- */
-
-import { encryptToken } from '../../lib/encryption.js';
-import { logger } from '../../lib/logger.js';
-
-const PINTEREST_AUTH_URL = 'https://www.pinterest.com/oauth/';
-const PINTEREST_TOKEN_URL = 'https://api.pinterest.com/v5/oauth/token';
+const PINTEREST_AUTH_URL = "https://www.pinterest.com/oauth/";
+const PINTEREST_TOKEN_URL = "https://api.pinterest.com/v5/oauth/token";
 
 export interface PinterestOAuthConfig {
   clientId: string;
@@ -24,8 +14,8 @@ export function getPinterestAuthUrl(config: PinterestOAuthConfig, state: string)
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
-    scope: 'boards:read,pins:read,pins:write',
-    response_type: 'code',
+    scope: "boards:read,pins:read,pins:write",
+    response_type: "code",
     state,
   });
   return `${PINTEREST_AUTH_URL}?${params}`;
@@ -38,19 +28,19 @@ export async function exchangePinterestCode(
   config: PinterestOAuthConfig,
   code: string
 ): Promise<{ accessToken: string; refreshToken?: string; expiresAt?: Date }> {
-  const credentials = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64');
+  const credentials = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
 
   const params = new URLSearchParams({
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
     code,
     redirect_uri: config.redirectUri,
   });
 
   const response = await fetch(PINTEREST_TOKEN_URL, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Basic ${credentials}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      "Content-Type": "application/x-www-form-urlencoded",
     },
     body: params,
     signal: AbortSignal.timeout(15000),
@@ -77,7 +67,7 @@ export async function exchangePinterestCode(
  * Get Pinterest user profile and boards.
  */
 export async function getPinterestProfile(accessToken: string) {
-  const response = await fetch('https://api.pinterest.com/v5/user_account', {
+  const response = await fetch("https://api.pinterest.com/v5/user_account", {
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(10000),
   });
@@ -90,7 +80,7 @@ export async function getPinterestProfile(accessToken: string) {
  * Get user's Pinterest boards.
  */
 export async function getPinterestBoards(accessToken: string) {
-  const response = await fetch('https://api.pinterest.com/v5/boards?page_size=25', {
+  const response = await fetch("https://api.pinterest.com/v5/boards?page_size=25", {
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(10000),
   });

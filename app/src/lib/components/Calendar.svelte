@@ -1,200 +1,232 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { platformBrandColors, platformFallbackColor } from '../platform-brand-colors';
+import { platformBrandColors } from "../platform-brand-colors";
 
-  interface Post {
-    id: string;
-    title?: string;
-    contentText: string;
-    platform: string;
-    date: string; // YYYY-MM-DD
-    scheduledTime?: string; // HH:MM optional
-    status: 'draft' | 'scheduled' | 'published' | 'failed';
+interface Post {
+  id: string;
+  title?: string;
+  contentText: string;
+  platform: string;
+  date: string; // YYYY-MM-DD
+  scheduledTime?: string; // HH:MM optional
+  status: "draft" | "scheduled" | "published" | "failed";
+}
+
+let { posts = [] as Post[], onDateClick, onPostClick, onPostMove } = $props();
+
+let currentDate = $state(new Date());
+let view = $state<"month" | "week" | "day">("month");
+let dragTarget = $state<string | null>(null);
+let dragOver = $state<string | null>(null);
+
+const _platformColors: Record<string, string> = platformBrandColors;
+
+const _platformIcons: Record<string, string> = {
+  instagram: "📸",
+  tiktok: "🎵",
+  x: "𝕏",
+  linkedin: "💼",
+  facebook: "📘",
+  telegram: "✈️",
+};
+
+const _statusStyles: Record<string, string> = {
+  draft: "opacity-60 border-dashed",
+  scheduled: "",
+  published: "bg-green-500/10 text-green-600",
+  failed: "bg-red-500/10 text-red-600",
+};
+
+const monthStart = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+const monthEnd = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
+const startDay = $derived(monthStart.getDay());
+
+const _days = $derived.by(() => {
+  const result: Array<{ date: Date; posts: Post[] }> = [];
+  for (let i = 0; i < startDay; i++) {
+    result.push({ date: new Date(monthStart.getTime() - (startDay - i) * 86400000), posts: [] });
   }
+  for (let d = 1; d <= monthEnd.getDate(); d++) {
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+    const dateStr = date.toISOString().slice(0, 10);
+    result.push({ date, posts: posts.filter((p: Post) => p.date === dateStr) });
+  }
+  while (result.length % 7 !== 0) {
+    const last = result[result.length - 1];
+    result.push({ date: new Date(last.date.getTime() + 86400000), posts: [] });
+  }
+  return result;
+});
 
-  let { posts = [] as Post[], onDateClick, onPostClick, onPostMove } = $props();
+// Week view: starts on Sunday of the week containing currentDate
+const weekStart = $derived.by(() => {
+  const d = new Date(currentDate);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+});
 
-  let currentDate = $state(new Date());
-  let view = $state<'month' | 'week' | 'day'>('month');
-  let dragTarget = $state<string | null>(null);
-  let dragOver = $state<string | null>(null);
-
-  const platformColors: Record<string, string> = platformBrandColors;
-
-  const platformIcons: Record<string, string> = {
-    instagram: '📸',
-    tiktok: '🎵',
-    x: '𝕏',
-    linkedin: '💼',
-    facebook: '📘',
-    telegram: '✈️',
-  };
-
-  const statusStyles: Record<string, string> = {
-    draft: 'opacity-60 border-dashed',
-    scheduled: '',
-    published: 'bg-green-500/10 text-green-600',
-    failed: 'bg-red-500/10 text-red-600',
-  };
-
-  const monthStart = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
-  const monthEnd = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
-  const startDay = $derived(monthStart.getDay());
-
-  const days = $derived.by(() => {
-    const result: Array<{ date: Date; posts: Post[] }> = [];
-    for (let i = 0; i < startDay; i++) {
-      result.push({ date: new Date(monthStart.getTime() - (startDay - i) * 86400000), posts: [] });
-    }
-    for (let d = 1; d <= monthEnd.getDate(); d++) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
-      const dateStr = date.toISOString().slice(0, 10);
-      result.push({ date, posts: posts.filter((p: Post) => p.date === dateStr) });
-    }
-    while (result.length % 7 !== 0) {
-      const last = result[result.length - 1];
-      result.push({ date: new Date(last.date.getTime() + 86400000), posts: [] });
-    }
-    return result;
-  });
-
-  // Week view: starts on Sunday of the week containing currentDate
-  const weekStart = $derived.by(() => {
-    const d = new Date(currentDate);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - d.getDay());
-    return d;
-  });
-
-  const weekDays = $derived.by(() => {
-    const result: Array<{ date: Date; posts: Post[] }> = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + i);
-      const dateStr = date.toISOString().slice(0, 10);
-      result.push({
-        date,
-        posts: posts.filter((p: Post) => p.date === dateStr),
-      });
-    }
-    return result;
-  });
-
-  // Day view: single day = currentDate
-  const dayDate = $derived.by(() => {
-    const d = new Date(currentDate);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
-
-  const dayPosts = $derived.by(() => {
-    const dateStr = dayDate.toISOString().slice(0, 10);
-    return posts.filter((p: Post) => p.date === dateStr);
-  });
-
-  // Day-view derived values (replaces inline `{@const}` which Svelte 5 forbids
-  // outside direct children of `{#if}` / `{#each}` / etc.).
-  const dayDateStr = $derived(dayDate.toISOString().slice(0, 10));
-  const dayIsDropTarget = $derived(dragOver === dayDateStr);
-
-  // Hourly slots: 0..23
-  const HOURS = Array.from({ length: 24 }, (_, h) => h);
-
-  function postsForHour(list: Post[], hour: number): Post[] {
-    return list.filter((p) => {
-      if (!p.scheduledTime) return hour === 9; // default bucket at 9am when no time set
-      const hh = parseInt(p.scheduledTime.split(':')[0], 10);
-      return Number.isFinite(hh) ? hh === hour : false;
+const _weekDays = $derived.by(() => {
+  const result: Array<{ date: Date; posts: Post[] }> = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + i);
+    const dateStr = date.toISOString().slice(0, 10);
+    result.push({
+      date,
+      posts: posts.filter((p: Post) => p.date === dateStr),
     });
   }
+  return result;
+});
 
-  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Day view: single day = currentDate
+const dayDate = $derived.by(() => {
+  const d = new Date(currentDate);
+  d.setHours(0, 0, 0, 0);
+  return d;
+});
 
-  function prev() {
-    if (view === 'month') {
-      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-    } else if (view === 'week') {
-      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 7);
-    } else {
-      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 1);
-    }
-  }
+const _dayPosts = $derived.by(() => {
+  const dateStr = dayDate.toISOString().slice(0, 10);
+  return posts.filter((p: Post) => p.date === dateStr);
+});
 
-  function next() {
-    if (view === 'month') {
-      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-    } else if (view === 'week') {
-      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7);
-    } else {
-      currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1);
-    }
-  }
+// Day-view derived values (replaces inline `{@const}` which Svelte 5 forbids
+// outside direct children of `{#if}` / `{#each}` / etc.).
+const dayDateStr = $derived(dayDate.toISOString().slice(0, 10));
+const _dayIsDropTarget = $derived(dragOver === dayDateStr);
 
-  function today() { currentDate = new Date(); }
+// Hourly slots: 0..23
+const _HOURS = Array.from({ length: 24 }, (_, h) => h);
 
-  const monthLabel = $derived(`${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`);
-
-  const weekLabel = $derived.by(() => {
-    const end = new Date(weekStart);
-    end.setDate(weekStart.getDate() + 6);
-    const sameMonth = weekStart.getMonth() === end.getMonth();
-    const sameYear = weekStart.getFullYear() === end.getFullYear();
-    if (sameMonth) {
-      return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()}–${end.getDate()}, ${weekStart.getFullYear()}`;
-    }
-    if (sameYear) {
-      return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${weekStart.getFullYear()}`;
-    }
-    return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()}, ${weekStart.getFullYear()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+function _postsForHour(list: Post[], hour: number): Post[] {
+  return list.filter((p) => {
+    if (!p.scheduledTime) return hour === 9; // default bucket at 9am when no time set
+    const hh = parseInt(p.scheduledTime.split(":")[0], 10);
+    return Number.isFinite(hh) ? hh === hour : false;
   });
+}
 
-  const dayLabel = $derived(`${DAYS[dayDate.getDay()]}, ${MONTHS[dayDate.getMonth()]} ${dayDate.getDate()}, ${dayDate.getFullYear()}`);
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  function formatHour(h: number): string {
-    if (h === 0) return '12 AM';
-    if (h < 12) return `${h} AM`;
-    if (h === 12) return '12 PM';
-    return `${h - 12} PM`;
+function _prev() {
+  if (view === "month") {
+    currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+  } else if (view === "week") {
+    currentDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate() - 7
+    );
+  } else {
+    currentDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate() - 1
+    );
   }
+}
 
-  function handleDragStart(e: DragEvent, postId: string) {
-    dragTarget = postId;
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+function _next() {
+  if (view === "month") {
+    currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+  } else if (view === "week") {
+    currentDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate() + 7
+    );
+  } else {
+    currentDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate() + 1
+    );
   }
+}
 
-  function handleDragOver(e: DragEvent, dateStr: string) {
-    e.preventDefault();
-    dragOver = dateStr;
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-  }
+function _today() {
+  currentDate = new Date();
+}
 
-  function handleDrop(e: DragEvent, dateStr: string) {
-    e.preventDefault();
-    if (dragTarget && onPostMove) {
-      onPostMove(dragTarget, dateStr);
-    }
-    dragTarget = null;
-    dragOver = null;
-  }
+const _monthLabel = $derived(`${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`);
 
-  function handleDragEnd() {
-    dragTarget = null;
-    dragOver = null;
+const _weekLabel = $derived.by(() => {
+  const end = new Date(weekStart);
+  end.setDate(weekStart.getDate() + 6);
+  const sameMonth = weekStart.getMonth() === end.getMonth();
+  const sameYear = weekStart.getFullYear() === end.getFullYear();
+  if (sameMonth) {
+    return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()}–${end.getDate()}, ${weekStart.getFullYear()}`;
   }
+  if (sameYear) {
+    return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${weekStart.getFullYear()}`;
+  }
+  return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()}, ${weekStart.getFullYear()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+});
 
-  function handleDateClick(dateStr: string) {
-    if (onDateClick) onDateClick(dateStr);
-  }
+const _dayLabel = $derived(
+  `${DAYS[dayDate.getDay()]}, ${MONTHS[dayDate.getMonth()]} ${dayDate.getDate()}, ${dayDate.getFullYear()}`
+);
 
-  function handlePostClick(e: Event, postId: string) {
-    e.stopPropagation();
-    if (onPostClick) onPostClick(postId);
-  }
+function _formatHour(h: number): string {
+  if (h === 0) return "12 AM";
+  if (h < 12) return `${h} AM`;
+  if (h === 12) return "12 PM";
+  return `${h - 12} PM`;
+}
 
-  function truncate(text: string, max: number): string {
-    return text.length > max ? text.slice(0, max) + '...' : text;
+function _handleDragStart(e: DragEvent, postId: string) {
+  dragTarget = postId;
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+}
+
+function _handleDragOver(e: DragEvent, dateStr: string) {
+  e.preventDefault();
+  dragOver = dateStr;
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+}
+
+function _handleDrop(e: DragEvent, dateStr: string) {
+  e.preventDefault();
+  if (dragTarget && onPostMove) {
+    onPostMove(dragTarget, dateStr);
   }
+  dragTarget = null;
+  dragOver = null;
+}
+
+function _handleDragEnd() {
+  dragTarget = null;
+  dragOver = null;
+}
+
+function _handleDateClick(dateStr: string) {
+  if (onDateClick) onDateClick(dateStr);
+}
+
+function _handlePostClick(e: Event, postId: string) {
+  e.stopPropagation();
+  if (onPostClick) onPostClick(postId);
+}
+
+function _truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}...` : text;
+}
 </script>
 
 <div class="bg-card border border-border rounded-lg overflow-hidden select-none">

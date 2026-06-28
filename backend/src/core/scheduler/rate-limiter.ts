@@ -1,6 +1,6 @@
-import type { Redis } from 'ioredis';
+import type { Redis } from "ioredis";
 
-const COUNTER_PREFIX = 'rate_limit:publish:';
+const COUNTER_PREFIX = "rate_limit:publish:";
 
 interface PlatformLimit {
   maxRequests: number;
@@ -8,12 +8,12 @@ interface PlatformLimit {
 }
 
 const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
-  instagram: { maxRequests: 200, windowMs: 3_600_000 },    // 200/hour
-  x: { maxRequests: 300, windowMs: 900_000 },              // 300/15min
-  linkedin: { maxRequests: 100, windowMs: 86_400_000 },    // 100/day
-  tiktok: { maxRequests: 50, windowMs: 3_600_000 },        // 50/hour
-  facebook: { maxRequests: 200, windowMs: 3_600_000 },     // 200/hour
-  telegram: { maxRequests: 30, windowMs: 60_000 },          // 30/min
+  instagram: { maxRequests: 200, windowMs: 3_600_000 }, // 200/hour
+  x: { maxRequests: 300, windowMs: 900_000 }, // 300/15min
+  linkedin: { maxRequests: 100, windowMs: 86_400_000 }, // 100/day
+  tiktok: { maxRequests: 50, windowMs: 3_600_000 }, // 50/hour
+  facebook: { maxRequests: 200, windowMs: 3_600_000 }, // 200/hour
+  telegram: { maxRequests: 30, windowMs: 60_000 }, // 30/min
 };
 
 let redisClient: Redis;

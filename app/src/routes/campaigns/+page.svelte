@@ -1,80 +1,83 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+import { goto } from "$app/navigation";
 
-  let { data } = $props();
+let { data } = $props();
 
-  let bulkTarget = $state<string | null>(null);
-  let bulkPostIds = $state('');
-  let bulkStartDate = $state('');
-  let bulkInterval = $state(30);
-  let bulkScheduling = $state(false);
+let bulkTarget = $state<string | null>(null);
+let bulkPostIds = $state("");
+let bulkStartDate = $state("");
+let bulkInterval = $state(30);
+let _bulkScheduling = $state(false);
 
-  let toggling = $state<Record<string, boolean>>({});
+let toggling = $state<Record<string, boolean>>({});
 
-  const statusColors: Record<string, string> = {
-    draft: 'bg-gray-500/10 text-gray-500',
-    active: 'bg-green-500/10 text-green-500',
-    completed: 'bg-blue-500/10 text-blue-500',
-    paused: 'bg-yellow-500/10 text-yellow-500',
-  };
+const _statusColors: Record<string, string> = {
+  draft: "bg-gray-500/10 text-gray-500",
+  active: "bg-green-500/10 text-green-500",
+  completed: "bg-blue-500/10 text-blue-500",
+  paused: "bg-yellow-500/10 text-yellow-500",
+};
 
-  const isAdmin = data?.user?.role === 'admin';
+const _isAdmin = data?.user?.role === "admin";
 
-  function getProgressStats(campaign: any) {
-    const posts = campaign.posts || [];
-    const published = posts.filter((p: any) => p.status === 'published').length;
-    const scheduled = posts.filter((p: any) => p.status === 'scheduled').length;
-    const failed = posts.filter((p: any) => p.status === 'failed').length;
-    const total = posts.length;
-    const done = published + failed;
-    const remaining = total - done;
-    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-    return { published, scheduled, failed, remaining, total, percent };
-  }
+function _getProgressStats(campaign: any) {
+  const posts = campaign.posts || [];
+  const published = posts.filter((p: any) => p.status === "published").length;
+  const scheduled = posts.filter((p: any) => p.status === "scheduled").length;
+  const failed = posts.filter((p: any) => p.status === "failed").length;
+  const total = posts.length;
+  const done = published + failed;
+  const remaining = total - done;
+  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+  return { published, scheduled, failed, remaining, total, percent };
+}
 
-  async function togglePauseResume(campaign: any) {
-    const id = campaign.id;
-    toggling = { ...toggling, [id]: true };
-    try {
-      const action = campaign.status === 'active' ? 'pause' : 'resume';
-      const res = await fetch(`/api/v1/campaigns/${id}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        const body = await res.json();
-        campaign.status = body.campaign.status;
-      }
-    } finally {
-      toggling = { ...toggling, [id]: false };
+async function _togglePauseResume(campaign: any) {
+  const id = campaign.id;
+  toggling = { ...toggling, [id]: true };
+  try {
+    const action = campaign.status === "active" ? "pause" : "resume";
+    const res = await fetch(`/api/v1/campaigns/${id}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (res.ok) {
+      const body = await res.json();
+      campaign.status = body.campaign.status;
     }
+  } finally {
+    toggling = { ...toggling, [id]: false };
   }
+}
 
-  async function doBulkSchedule() {
-    if (!bulkTarget || !bulkPostIds || !bulkStartDate) return;
-    bulkScheduling = true;
-    try {
-      const ids = bulkPostIds.split(',').map((s) => s.trim()).filter(Boolean);
-      const res = await fetch(`/api/v1/campaigns/${bulkTarget}/bulk-schedule`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          postIds: ids,
-          startDate: new Date(bulkStartDate).toISOString(),
-          intervalMinutes: bulkInterval,
-        }),
-      });
-      if (res.ok) {
-        bulkTarget = null;
-        bulkPostIds = '';
-        bulkStartDate = '';
-        bulkInterval = 30;
-        goto('/campaigns');
-      }
-    } finally {
-      bulkScheduling = false;
+async function _doBulkSchedule() {
+  if (!bulkTarget || !bulkPostIds || !bulkStartDate) return;
+  _bulkScheduling = true;
+  try {
+    const ids = bulkPostIds
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const res = await fetch(`/api/v1/campaigns/${bulkTarget}/bulk-schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        postIds: ids,
+        startDate: new Date(bulkStartDate).toISOString(),
+        intervalMinutes: bulkInterval,
+      }),
+    });
+    if (res.ok) {
+      bulkTarget = null;
+      bulkPostIds = "";
+      bulkStartDate = "";
+      bulkInterval = 30;
+      goto("/campaigns");
     }
+  } finally {
+    _bulkScheduling = false;
   }
+}
 </script>
 
 <svelte:head><title>Campaigns — hiai-post</title></svelte:head>

@@ -1,6 +1,6 @@
-import { Elysia } from 'elysia';
-import { redis } from '../../lib/redis.js';
-import { logger } from '../../lib/logger.js';
+import { Elysia } from "elysia";
+import { logger } from "../../lib/logger.js";
+import { redis } from "../../lib/redis.js";
 
 interface RateLimitConfig {
   windowMs: number;
@@ -9,19 +9,19 @@ interface RateLimitConfig {
 }
 
 const DEFAULT_CONFIGS: Record<string, RateLimitConfig> = {
-  auth: { windowMs: 15 * 60 * 1000, max: 5, endpoint: 'auth' },
-  public: { windowMs: 60 * 1000, max: 100, endpoint: 'public' },
-  authenticated: { windowMs: 60 * 1000, max: 300, endpoint: 'authenticated' },
-  publish: { windowMs: 60 * 1000, max: 20, endpoint: 'publish' },
-  generate: { windowMs: 60 * 60 * 1000, max: 50, endpoint: 'generate' },
+  auth: { windowMs: 15 * 60 * 1000, max: 5, endpoint: "auth" },
+  public: { windowMs: 60 * 1000, max: 100, endpoint: "public" },
+  authenticated: { windowMs: 60 * 1000, max: 300, endpoint: "authenticated" },
+  publish: { windowMs: 60 * 1000, max: 20, endpoint: "publish" },
+  generate: { windowMs: 60 * 60 * 1000, max: 50, endpoint: "generate" },
 };
 
 function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
+  const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    return forwarded.split(",")[0].trim();
   }
-  return request.headers.get('x-real-ip') ?? 'unknown';
+  return request.headers.get("x-real-ip") ?? "unknown";
 }
 
 /**
@@ -38,21 +38,21 @@ function getClientIp(request: Request): string {
  * rate limiting by IP".
  */
 function extractTenantId(request: Request): string | null {
-  const headerTenant = request.headers.get('X-Tenant-Id');
+  const headerTenant = request.headers.get("X-Tenant-Id");
   if (headerTenant) return headerTenant;
 
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
 
   const token = authHeader.slice(7);
-  const parts = token.split('.');
+  const parts = token.split(".");
   if (parts.length !== 3) return null;
 
   try {
-    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
+    const payloadJson = Buffer.from(parts[1], "base64url").toString("utf8");
     const payload = JSON.parse(payloadJson) as { tenant_id?: unknown; tenantId?: unknown };
     const claim = payload.tenant_id ?? payload.tenantId;
-    return typeof claim === 'string' && claim.length > 0 ? claim : null;
+    return typeof claim === "string" && claim.length > 0 ? claim : null;
   } catch {
     return null;
   }
@@ -73,7 +73,7 @@ interface RateLimitDecision {
 async function bumpBucket(
   bucketKey: string,
   windowMs: number,
-  max: number,
+  max: number
 ): Promise<RateLimitDecision> {
   const current = await redis.incr(bucketKey);
   if (current === 1) {
@@ -97,60 +97,55 @@ async function bumpBucket(
 export function createRateLimiter(tier: keyof typeof DEFAULT_CONFIGS) {
   const config = DEFAULT_CONFIGS[tier] ?? DEFAULT_CONFIGS.public;
 
-  return new Elysia({ name: `rate-limit-${tier}` })
-    .derive(async ({ request, set }) => {
-      const tenantId = extractTenantId(request);
-      const clientIp = getClientIp(request);
+  return new Elysia({ name: `rate-limit-${tier}` }).derive(async ({ request, set }) => {
+    const tenantId = extractTenantId(request);
+    const clientIp = getClientIp(request);
 
-      // Per-tenant bucket: `ratelimit:{tenant_id}:{endpoint}`
-      // Global bucket (fallback when no tenant context): `ratelimit:{endpoint}:{ip}`
-      const tenantKey = tenantId ? `ratelimit:${tenantId}:${config.endpoint}` : null;
-      const globalKey = `ratelimit:${config.endpoint}:${clientIp}`;
+    // Per-tenant bucket: `ratelimit:{tenant_id}:{endpoint}`
+    // Global bucket (fallback when no tenant context): `ratelimit:{endpoint}:{ip}`
+    const tenantKey = tenantId ? `ratelimit:${tenantId}:${config.endpoint}` : null;
+    const globalKey = `ratelimit:${config.endpoint}:${clientIp}`;
 
-      try {
-        // The active bucket is the tenant one when available; the global one
-        // always runs as a second-line guard so an unauthenticated flood from
-        // a single IP can't bypass limits even if tenant scoping is later added.
-        const primaryDecision = tenantKey
-          ? await bumpBucket(tenantKey, config.windowMs, config.max)
-          : await bumpBucket(globalKey, config.windowMs, config.max);
+    try {
+      // The active bucket is the tenant one when available; the global one
+      // always runs as a second-line guard so an unauthenticated flood from
+      // a single IP can't bypass limits even if tenant scoping is later added.
+      const primaryDecision = tenantKey
+        ? await bumpBucket(tenantKey, config.windowMs, config.max)
+        : await bumpBucket(globalKey, config.windowMs, config.max);
 
-        // Always count the global bucket too — it serves as a safety net even
-        // for tenant-scoped requests, and keeps the existing global limit
-        // semantics for legacy callers.
-        const globalDecision =
-          tenantKey !== null
-            ? await bumpBucket(globalKey, config.windowMs, config.max)
-            : null;
+      // Always count the global bucket too — it serves as a safety net even
+      // for tenant-scoped requests, and keeps the existing global limit
+      // semantics for legacy callers.
+      const globalDecision =
+        tenantKey !== null ? await bumpBucket(globalKey, config.windowMs, config.max) : null;
 
-        const worstDecision: RateLimitDecision =
-          globalDecision && !globalDecision.allowed
-            ? globalDecision
-            : primaryDecision;
+      const worstDecision: RateLimitDecision =
+        globalDecision && !globalDecision.allowed ? globalDecision : primaryDecision;
 
-        const headers: Record<string, string> = {
-          'X-RateLimit-Limit': String(worstDecision.limit),
-          'X-RateLimit-Remaining': String(worstDecision.remaining),
-          'X-RateLimit-Reset': String(worstDecision.resetSeconds),
-          ...(tenantKey ? { 'X-RateLimit-Tenant': tenantId! } : {}),
+      const headers: Record<string, string> = {
+        "X-RateLimit-Limit": String(worstDecision.limit),
+        "X-RateLimit-Remaining": String(worstDecision.remaining),
+        "X-RateLimit-Reset": String(worstDecision.resetSeconds),
+        ...(tenantKey ? { "X-RateLimit-Tenant": tenantId! } : {}),
+      };
+
+      if (!worstDecision.allowed) {
+        set.status = 429;
+        (set as any).headers = {
+          ...(set as any).headers,
+          ...headers,
+          "Retry-After": String(worstDecision.retryAfterSeconds),
         };
-
-        if (!worstDecision.allowed) {
-          set.status = 429;
-          (set as any).headers = {
-            ...(set as any).headers,
-            ...headers,
-            'Retry-After': String(worstDecision.retryAfterSeconds),
-          };
-          throw new Error('Rate limit exceeded');
-        }
-
-        return { rateLimitHeaders: headers };
-      } catch (err: any) {
-        if (err?.message === 'Rate limit exceeded') throw err;
-        // Fail-open: if Redis is down, allow the request
-        logger.warn({ err }, 'Rate limiter failed, allowing request');
-        return { rateLimitHeaders: {} };
+        throw new Error("Rate limit exceeded");
       }
-    });
+
+      return { rateLimitHeaders: headers };
+    } catch (err: any) {
+      if (err?.message === "Rate limit exceeded") throw err;
+      // Fail-open: if Redis is down, allow the request
+      logger.warn({ err }, "Rate limiter failed, allowing request");
+      return { rateLimitHeaders: {} };
+    }
+  });
 }

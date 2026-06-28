@@ -2,7 +2,7 @@
  * X (Twitter) publisher — publish tweets and threads via API v2.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface XPublishOptions {
   accessToken: string;
@@ -22,10 +22,7 @@ interface XPublishResult {
 /**
  * Upload media to X.
  */
-async function uploadMedia(
-  accessToken: string,
-  mediaUrl: string
-): Promise<string> {
+async function uploadMedia(accessToken: string, mediaUrl: string): Promise<string> {
   // Download the media first
   const mediaResponse = await fetch(mediaUrl, {
     signal: AbortSignal.timeout(30000),
@@ -36,19 +33,16 @@ async function uploadMedia(
 
   const mediaBlob = await mediaResponse.blob();
   const formData = new FormData();
-  formData.append('media', mediaBlob);
+  formData.append("media", mediaBlob);
 
-  const uploadResponse = await fetch(
-    'https://upload.twitter.com/1.1/media/upload.json',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: formData,
-      signal: AbortSignal.timeout(60000),
-    }
-  );
+  const uploadResponse = await fetch("https://upload.twitter.com/1.1/media/upload.json", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+    signal: AbortSignal.timeout(60000),
+  });
 
   if (!uploadResponse.ok) {
     const error = await uploadResponse.text();
@@ -79,11 +73,11 @@ async function postTweet(
     body.reply = { in_reply_to_tweet_id: options.replyTo };
   }
 
-  const response = await fetch('https://api.twitter.com/2/tweets', {
-    method: 'POST',
+  const response = await fetch("https://api.twitter.com/2/tweets", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(15000),
@@ -96,7 +90,7 @@ async function postTweet(
 
   const data = (await response.json()) as { data?: { id?: string } };
   if (!data.data?.id) {
-    throw new Error('Tweet ID not returned');
+    throw new Error("Tweet ID not returned");
   }
 
   return data.data.id;
@@ -105,12 +99,9 @@ async function postTweet(
 /**
  * Publish to X — single tweet or thread.
  */
-export async function publishToX(
-  options: XPublishOptions
-): Promise<XPublishResult> {
+export async function publishToX(options: XPublishOptions): Promise<XPublishResult> {
   try {
-    const { accessToken, content, mediaUrls, replyToTweetId, threadItems } =
-      options;
+    const { accessToken, content, mediaUrls, replyToTweetId, threadItems } = options;
 
     // Thread publishing
     if (threadItems?.length) {
@@ -122,9 +113,7 @@ export async function publishToX(
         let mediaIds: string[] | undefined;
         if (mediaUrls?.length && tweetIds.length === 0) {
           // Only attach media to first tweet
-          mediaIds = await Promise.all(
-            mediaUrls.map((url) => uploadMedia(accessToken, url))
-          );
+          mediaIds = await Promise.all(mediaUrls.map((url) => uploadMedia(accessToken, url)));
         }
 
         const tweetId = await postTweet(accessToken, threadContent, {
@@ -145,9 +134,7 @@ export async function publishToX(
     // Single tweet
     let mediaIds: string[] | undefined;
     if (mediaUrls?.length) {
-      mediaIds = await Promise.all(
-        mediaUrls.map((url) => uploadMedia(accessToken, url))
-      );
+      mediaIds = await Promise.all(mediaUrls.map((url) => uploadMedia(accessToken, url)));
     }
 
     const tweetId = await postTweet(accessToken, content, {
@@ -157,10 +144,10 @@ export async function publishToX(
 
     return { success: true, tweetId };
   } catch (error) {
-    logger.error({ error }, 'X publish failed');
+    logger.error({ error }, "X publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

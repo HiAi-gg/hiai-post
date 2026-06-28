@@ -1,151 +1,152 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+import { goto } from "$app/navigation";
 
-  const PLATFORMS = ['instagram', 'tiktok', 'x', 'linkedin', 'facebook', 'telegram'];
+const _PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
 
-  let step = $state(1);
-  let saving = $state(false);
-  let accounts = $state<any[]>([]);
-  let campaignsList = $state<any[]>([]);
-  let postsList = $state<any[]>([]);
-  let loadingAccounts = $state(true);
-  let loadingPosts = $state(false);
-  let draftPosts = $state<any[]>([]);
+let step = $state(1);
+let _saving = $state(false);
+let accounts = $state<any[]>([]);
+let _campaignsList = $state<any[]>([]);
+let postsList = $state<any[]>([]);
+let _loadingAccounts = $state(true);
+let _loadingPosts = $state(false);
+let _draftPosts = $state<any[]>([]);
 
-  // Step 1: Campaign details
-  let campaignName = $state('');
-  let campaignDescription = $state('');
-  let startDate = $state('');
-  let endDate = $state('');
+// Step 1: Campaign details
+let campaignName = $state("");
+let campaignDescription = $state("");
+let startDate = $state("");
+let endDate = $state("");
 
-  // Step 2: Platform selection
-  let selectedPlatforms = $state<string[]>([]);
+// Step 2: Platform selection
+let selectedPlatforms = $state<string[]>([]);
 
-  // Step 3: Post scheduling grid
-  let selectedPostIds = $state<string[]>([]);
+// Step 3: Post scheduling grid
+let selectedPostIds = $state<string[]>([]);
 
-  // Load accounts for platform selection
-  async function loadAccounts() {
-    loadingAccounts = true;
-    try {
-      const res = await fetch('/api/v1/accounts');
-      if (res.ok) {
-        const body = await res.json();
-        accounts = body.accounts || body.data || [];
-      }
-    } finally {
-      loadingAccounts = false;
+// Load accounts for platform selection
+async function loadAccounts() {
+  _loadingAccounts = true;
+  try {
+    const res = await fetch("/api/v1/accounts");
+    if (res.ok) {
+      const body = await res.json();
+      accounts = body.accounts || body.data || [];
     }
+  } finally {
+    _loadingAccounts = false;
   }
+}
 
-  // Load draft/available posts for scheduling
-  async function loadPosts() {
-    loadingPosts = true;
-    try {
-      const res = await fetch('/api/v1/posts?limit=50');
-      if (res.ok) {
-        const body = await res.json();
-        postsList = body.posts || body.data || [];
-        draftPosts = postsList.filter(
-          (p: any) => p.status === 'draft' || p.status === 'scheduled',
-        );
-      }
-    } finally {
-      loadingPosts = false;
+// Load draft/available posts for scheduling
+async function loadPosts() {
+  _loadingPosts = true;
+  try {
+    const res = await fetch("/api/v1/posts?limit=50");
+    if (res.ok) {
+      const body = await res.json();
+      postsList = body.posts || body.data || [];
+      _draftPosts = postsList.filter((p: any) => p.status === "draft" || p.status === "scheduled");
     }
+  } finally {
+    _loadingPosts = false;
   }
+}
 
-  $effect(() => {
-    if (step === 2) loadAccounts();
-    if (step === 3) loadPosts();
-  });
+$effect(() => {
+  if (step === 2) loadAccounts();
+  if (step === 3) loadPosts();
+});
 
-  function togglePlatform(platform: string) {
-    if (selectedPlatforms.includes(platform)) {
-      selectedPlatforms = selectedPlatforms.filter((p) => p !== platform);
-    } else {
-      selectedPlatforms = [...selectedPlatforms, platform];
+function _togglePlatform(platform: string) {
+  if (selectedPlatforms.includes(platform)) {
+    selectedPlatforms = selectedPlatforms.filter((p) => p !== platform);
+  } else {
+    selectedPlatforms = [...selectedPlatforms, platform];
+  }
+}
+
+function _togglePost(postId: string) {
+  if (selectedPostIds.includes(postId)) {
+    selectedPostIds = selectedPostIds.filter((id) => id !== postId);
+  } else {
+    selectedPostIds = [...selectedPostIds, postId];
+  }
+}
+
+function _canGoNext(): boolean {
+  if (step === 1) return campaignName.trim().length > 0;
+  if (step === 2) return selectedPlatforms.length > 0;
+  if (step === 3) return selectedPostIds.length > 0;
+  return true;
+}
+
+async function _createAndLaunch() {
+  _saving = true;
+  try {
+    // Create the campaign
+    const createRes = await fetch("/api/v1/campaigns", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: campaignName,
+        description: campaignDescription || undefined,
+        startDate: startDate ? new Date(startDate).toISOString() : undefined,
+        endDate: endDate ? new Date(endDate).toISOString() : undefined,
+      }),
+    });
+
+    if (!createRes.ok) {
+      const err = await createRes.json();
+      console.error("Failed to create campaign", err);
+      return;
     }
-  }
 
-  function togglePost(postId: string) {
-    if (selectedPostIds.includes(postId)) {
-      selectedPostIds = selectedPostIds.filter((id) => id !== postId);
-    } else {
-      selectedPostIds = [...selectedPostIds, postId];
-    }
-  }
+    const createBody = await createRes.json();
+    const campaignId = createBody.campaign?.id;
 
-  function canGoNext(): boolean {
-    if (step === 1) return campaignName.trim().length > 0;
-    if (step === 2) return selectedPlatforms.length > 0;
-    if (step === 3) return selectedPostIds.length > 0;
-    return true;
-  }
+    if (!campaignId) return;
 
-  async function createAndLaunch() {
-    saving = true;
-    try {
-      // Create the campaign
-      const createRes = await fetch('/api/v1/campaigns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+    // Bulk schedule selected posts at 1-hour intervals starting now
+    if (selectedPostIds.length > 0) {
+      const scheduleStart = startDate ? new Date(startDate) : new Date();
+      const scheduleRes = await fetch(`/api/v1/campaigns/${campaignId}/bulk-schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: campaignName,
-          description: campaignDescription || undefined,
-          startDate: startDate ? new Date(startDate).toISOString() : undefined,
-          endDate: endDate ? new Date(endDate).toISOString() : undefined,
+          postIds: selectedPostIds,
+          startDate: scheduleStart.toISOString(),
+          intervalMinutes: 60,
         }),
       });
 
-      if (!createRes.ok) {
-        const err = await createRes.json();
-        console.error('Failed to create campaign', err);
-        return;
+      if (!scheduleRes.ok) {
+        console.error("Bulk schedule failed", await scheduleRes.json());
       }
-
-      const createBody = await createRes.json();
-      const campaignId = createBody.campaign?.id;
-
-      if (!campaignId) return;
-
-      // Bulk schedule selected posts at 1-hour intervals starting now
-      if (selectedPostIds.length > 0) {
-        const scheduleStart = startDate ? new Date(startDate) : new Date();
-        const scheduleRes = await fetch(`/api/v1/campaigns/${campaignId}/bulk-schedule`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            postIds: selectedPostIds,
-            startDate: scheduleStart.toISOString(),
-            intervalMinutes: 60,
-          }),
-        });
-
-        if (!scheduleRes.ok) {
-          console.error('Bulk schedule failed', await scheduleRes.json());
-        }
-      }
-
-      goto('/campaigns');
-    } finally {
-      saving = false;
     }
+
+    goto("/campaigns");
+  } finally {
+    _saving = false;
   }
+}
 
-  function nextStep() {
-    if (step < 4) step++;
-  }
+function _nextStep() {
+  if (step < 4) step++;
+}
 
-  function prevStep() {
-    if (step > 1) step--;
-  }
+function _prevStep() {
+  if (step > 1) step--;
+}
 
-  const selectedAccounts = $derived(
-    accounts.filter((a) => selectedPlatforms.includes(a.platform)),
-  );
+const _selectedAccounts = $derived(accounts.filter((a) => selectedPlatforms.includes(a.platform)));
 
-  const stepTitles = ['Campaign Details', 'Platform Selection', 'Post Scheduling', 'Review & Launch'];
+const _stepTitles = [
+  "Campaign Details",
+  "Platform Selection",
+  "Post Scheduling",
+  "Review & Launch",
+];
 </script>
 
 <svelte:head>

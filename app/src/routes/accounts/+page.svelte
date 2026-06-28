@@ -1,35 +1,34 @@
 <script lang="ts">
-  import type { PageData } from './$types';
-  import { platformLogoColors } from '$lib/platform-brand-colors';
+import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+let { data }: { data: PageData } = $props();
 
-  const PLATFORMS = [
-    { id: 'instagram', name: 'Instagram' },
-    { id: 'tiktok', name: 'TikTok' },
-    { id: 'x', name: 'X (Twitter)' },
-    { id: 'linkedin', name: 'LinkedIn' },
-    { id: 'facebook', name: 'Facebook' },
-    { id: 'telegram', name: 'Telegram' },
-  ] as const;
+const _PLATFORMS = [
+  { id: "instagram", name: "Instagram" },
+  { id: "tiktok", name: "TikTok" },
+  { id: "x", name: "X (Twitter)" },
+  { id: "linkedin", name: "LinkedIn" },
+  { id: "facebook", name: "Facebook" },
+  { id: "telegram", name: "Telegram" },
+] as const;
 
-  function isConnected(platformId: string) {
-    return data.accounts.some((a: any) => a.platform === platformId);
+function _isConnected(platformId: string) {
+  return data.accounts.some((a: any) => a.platform === platformId);
+}
+
+async function _connect(platformId: string) {
+  const res = await fetch(`/api/v1/oauth/${platformId}/connect`, { method: "POST" });
+  if (res.ok) {
+    const body = await res.json();
+    if (body.url) window.location.href = body.url;
   }
+}
 
-  async function connect(platformId: string) {
-    const res = await fetch(`/api/v1/oauth/${platformId}/connect`, { method: 'POST' });
-    if (res.ok) {
-      const body = await res.json();
-      if (body.url) window.location.href = body.url;
-    }
-  }
-
-  async function disconnect(accountId: string) {
-    if (!confirm('Disconnect this account?')) return;
-    await fetch(`/api/v1/accounts/${accountId}`, { method: 'DELETE' });
-    location.reload();
-  }
+async function _disconnect(accountId: string) {
+  if (!confirm("Disconnect this account?")) return;
+  await fetch(`/api/v1/accounts/${accountId}`, { method: "DELETE" });
+  location.reload();
+}
 </script>
 
 <svelte:head>

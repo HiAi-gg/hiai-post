@@ -1,7 +1,7 @@
-import { Elysia } from 'elysia';
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { getConfig } from '../../lib/config.js';
-import { logger } from '../../lib/logger.js';
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { Elysia } from "elysia";
+import { getConfig } from "../../lib/config.js";
+import { logger } from "../../lib/logger.js";
 
 const cfg = getConfig();
 
@@ -29,23 +29,23 @@ interface JwtPayload {
  */
 export function verifyAdminJwt(token: string, secret: string): JwtPayload | null {
   if (!secret) return null;
-  const parts = token.split('.');
+  const parts = token.split(".");
   if (parts.length !== 3) return null;
   const [headerB64, payloadB64, signatureB64] = parts;
   const signingInput = `${headerB64}.${payloadB64}`;
 
   let header: { alg?: string };
   try {
-    header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8')) as { alg?: string };
+    header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8")) as { alg?: string };
   } catch {
     return null;
   }
-  if (header.alg !== 'HS256') return null;
+  if (header.alg !== "HS256") return null;
 
-  const expected = createHmac('sha256', secret).update(signingInput).digest();
+  const expected = createHmac("sha256", secret).update(signingInput).digest();
   let provided: Buffer;
   try {
-    provided = Buffer.from(signatureB64, 'base64url');
+    provided = Buffer.from(signatureB64, "base64url");
   } catch {
     return null;
   }
@@ -54,26 +54,26 @@ export function verifyAdminJwt(token: string, secret: string): JwtPayload | null
 
   let payload: JwtPayload;
   try {
-    payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as JwtPayload;
+    payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8")) as JwtPayload;
   } catch {
     return null;
   }
-  if (typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()) return null;
+  if (typeof payload.exp === "number" && payload.exp * 1000 < Date.now()) return null;
 
   return payload;
 }
 
 function looksLikeJwt(token: string): boolean {
-  return token.split('.').length === 3;
+  return token.split(".").length === 3;
 }
 
-export const authMiddleware = new Elysia({ name: 'auth' })
-  .derive(async ({ request, set }): Promise<{ user: AuthUser }> => {
-    const authHeader = request.headers.get('Authorization');
+export const authMiddleware = new Elysia({ name: "auth" }).derive(
+  async ({ request, set }): Promise<{ user: AuthUser }> => {
+    const authHeader = request.headers.get("Authorization");
 
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith("Bearer ")) {
       set.status = 401;
-      throw new Error('Missing or invalid Authorization header');
+      throw new Error("Missing or invalid Authorization header");
     }
 
     const token = authHeader.slice(7);
@@ -93,7 +93,7 @@ export const authMiddleware = new Elysia({ name: 'auth' })
           },
         };
       }
-      logger.debug('HS256 admin JWT present but invalid; falling back to session');
+      logger.debug("HS256 admin JWT present but invalid; falling back to session");
     }
 
     // Verify via Better Auth session token
@@ -107,21 +107,22 @@ export const authMiddleware = new Elysia({ name: 'auth' })
 
       if (!response.ok) {
         set.status = 401;
-        throw new Error('Invalid session');
+        throw new Error("Invalid session");
       }
 
       const data = (await response.json()) as { user?: AuthUser; session?: { userId: string } };
       if (!data.user) {
         set.status = 401;
-        throw new Error('No user in session');
+        throw new Error("No user in session");
       }
 
       return {
         user: data.user,
       };
     } catch (err) {
-      logger.debug({ err }, 'Auth verification failed');
+      logger.debug({ err }, "Auth verification failed");
       set.status = 401;
-      throw new Error('Authentication failed');
+      throw new Error("Authentication failed");
     }
-  });
+  }
+);

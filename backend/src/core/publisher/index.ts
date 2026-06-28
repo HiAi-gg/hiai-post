@@ -2,14 +2,15 @@
  * Publisher registry — maps platform enum to adapter, provides unified publish() interface.
  */
 
-import { publishToInstagram, type InstagramPublishOptions } from './instagram.js';
-import { publishToTikTok, type TikTokPublishOptions } from './tiktok.js';
-import { publishToX, type XPublishOptions } from './x.js';
-import { publishToLinkedIn, type LinkedInPublishOptions } from './linkedin.js';
-import { publishToFacebook, type FacebookPublishOptions } from './facebook.js';
-import { publishToTelegram, type TelegramPublishOptions } from './telegram.js';
-import { publishToThreads, type ThreadsPublishOptions } from './threads.js';
-import { publishToPinterest, type PinterestPublishOptions } from './pinterest.js';
+import { logger } from "../../lib/logger.js";
+import { publishToFacebook } from "./facebook.js";
+import { type InstagramPublishOptions, publishToInstagram } from "./instagram.js";
+import { publishToLinkedIn } from "./linkedin.js";
+import { publishToPinterest } from "./pinterest.js";
+import { publishToTelegram, type TelegramPublishOptions } from "./telegram.js";
+import { publishToThreads } from "./threads.js";
+import { publishToTikTok, type TikTokPublishOptions } from "./tiktok.js";
+import { publishToX } from "./x.js";
 import {
   publishToYouTube,
   publishToYouTubeLong,
@@ -17,21 +18,20 @@ import {
   type YouTubeLongPublishOptions,
   type YouTubePublishOptions,
   type YouTubeShortsPublishOptions,
-} from './youtube.js';
-import { logger } from '../../lib/logger.js';
+} from "./youtube.js";
 
 export type SupportedPlatform =
-  | 'instagram'
-  | 'tiktok'
-  | 'x'
-  | 'linkedin'
-  | 'facebook'
-  | 'telegram'
-  | 'threads'
-  | 'pinterest'
-  | 'youtube'
-  | 'youtube-shorts'
-  | 'youtube-long';
+  | "instagram"
+  | "tiktok"
+  | "x"
+  | "linkedin"
+  | "facebook"
+  | "telegram"
+  | "threads"
+  | "pinterest"
+  | "youtube"
+  | "youtube-shorts"
+  | "youtube-long";
 
 export interface PublishRequest {
   platform: SupportedPlatform;
@@ -58,36 +58,36 @@ export interface PublishResponse {
 export async function publish(request: PublishRequest): Promise<PublishResponse> {
   const { platform, content, mediaUrl, mediaType, credentials, options } = request;
 
-  logger.info({ platform, contentLength: content.length }, 'Publishing to platform');
+  logger.info({ platform, contentLength: content.length }, "Publishing to platform");
 
   try {
     switch (platform) {
-      case 'instagram': {
+      case "instagram": {
         const result = await publishToInstagram({
           accessToken: credentials.accessToken,
           instagramAccountId: credentials.accountId,
           content,
           mediaUrl,
-          mediaType: mediaType as InstagramPublishOptions['mediaType'],
-          carouselItems: options?.carouselItems as InstagramPublishOptions['carouselItems'],
+          mediaType: mediaType as InstagramPublishOptions["mediaType"],
+          carouselItems: options?.carouselItems as InstagramPublishOptions["carouselItems"],
         });
         return { ...result, platform };
       }
 
-      case 'tiktok': {
+      case "tiktok": {
         const result = await publishToTikTok({
           accessToken: credentials.accessToken,
           openId: credentials.openId,
-          videoUrl: mediaUrl || '',
+          videoUrl: mediaUrl || "",
           title: (options?.title as string) || content.slice(0, 150),
           description: content,
           hashtags: options?.hashtags as string[],
-          privacyLevel: options?.privacyLevel as TikTokPublishOptions['privacyLevel'],
+          privacyLevel: options?.privacyLevel as TikTokPublishOptions["privacyLevel"],
         });
         return { ...result, platform };
       }
 
-      case 'x': {
+      case "x": {
         const result = await publishToX({
           accessToken: credentials.accessToken,
           content,
@@ -104,7 +104,7 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         };
       }
 
-      case 'linkedin': {
+      case "linkedin": {
         const result = await publishToLinkedIn({
           accessToken: credentials.accessToken,
           personUrn: credentials.personUrn,
@@ -116,7 +116,7 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         return { ...result, platform };
       }
 
-      case 'facebook': {
+      case "facebook": {
         const result = await publishToFacebook({
           accessToken: credentials.accessToken,
           pageId: credentials.pageId,
@@ -128,14 +128,14 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         return { ...result, platform };
       }
 
-      case 'telegram': {
+      case "telegram": {
         const result = await publishToTelegram({
           botToken: credentials.botToken,
           chatId: credentials.chatId,
           content,
           mediaUrl,
-          mediaType: mediaType as TelegramPublishOptions['mediaType'],
-          parseMode: (options?.parseMode as TelegramPublishOptions['parseMode']) || 'Markdown',
+          mediaType: mediaType as TelegramPublishOptions["mediaType"],
+          parseMode: (options?.parseMode as TelegramPublishOptions["parseMode"]) || "Markdown",
           replyMarkup: options?.replyMarkup as Record<string, unknown>,
         });
         return {
@@ -146,7 +146,7 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         };
       }
 
-      case 'threads': {
+      case "threads": {
         const result = await publishToThreads({
           accessToken: credentials.accessToken,
           userId: credentials.accountId || credentials.userId,
@@ -156,32 +156,32 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         return { ...result, platform };
       }
 
-      case 'pinterest': {
+      case "pinterest": {
         const result = await publishToPinterest({
           accessToken: credentials.accessToken,
-          boardId: credentials.boardId || (options?.boardId as string) || '',
+          boardId: credentials.boardId || (options?.boardId as string) || "",
           title: (options?.title as string) || content.slice(0, 100),
           description: content,
-          imageUrl: mediaUrl || '',
+          imageUrl: mediaUrl || "",
           link: options?.link as string,
         });
         return { ...result, platform };
       }
 
-      case 'youtube': {
+      case "youtube": {
         const result = await publishToYouTube({
           accessToken: credentials.accessToken,
-          videoUrl: mediaUrl || (options?.videoUrl as string) || '',
+          videoUrl: mediaUrl || (options?.videoUrl as string) || "",
           title: (options?.title as string) || content.slice(0, 100),
           description: content,
           tags: options?.tags as string[],
           categoryId: options?.categoryId as string,
-          privacyStatus: options?.privacyStatus as YouTubePublishOptions['privacyStatus'],
+          privacyStatus: options?.privacyStatus as YouTubePublishOptions["privacyStatus"],
           madeForKids: options?.madeForKids as boolean,
           thumbnailUrl: options?.thumbnailUrl as string,
           durationSeconds: options?.durationSeconds as number,
           defaultLanguage: options?.defaultLanguage as string,
-          kind: options?.kind as YouTubePublishOptions['kind'],
+          kind: options?.kind as YouTubePublishOptions["kind"],
         });
         return {
           success: result.success,
@@ -191,19 +191,21 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         };
       }
 
-      case 'youtube-shorts': {
+      case "youtube-shorts": {
         const result = await publishToYouTubeShorts({
           accessToken: credentials.accessToken,
-          videoUrl: mediaUrl || (options?.videoUrl as string) || '',
+          videoUrl: mediaUrl || (options?.videoUrl as string) || "",
           title: (options?.title as string) || content.slice(0, 100),
           description: content,
-          tags: options?.tags as YouTubeShortsPublishOptions['tags'],
-          categoryId: options?.categoryId as YouTubeShortsPublishOptions['categoryId'],
-          privacyStatus: options?.privacyStatus as YouTubeShortsPublishOptions['privacyStatus'],
-          madeForKids: options?.madeForKids as YouTubeShortsPublishOptions['madeForKids'],
-          thumbnailUrl: options?.thumbnailUrl as YouTubeShortsPublishOptions['thumbnailUrl'],
-          durationSeconds: options?.durationSeconds as YouTubeShortsPublishOptions['durationSeconds'],
-          defaultLanguage: options?.defaultLanguage as YouTubeShortsPublishOptions['defaultLanguage'],
+          tags: options?.tags as YouTubeShortsPublishOptions["tags"],
+          categoryId: options?.categoryId as YouTubeShortsPublishOptions["categoryId"],
+          privacyStatus: options?.privacyStatus as YouTubeShortsPublishOptions["privacyStatus"],
+          madeForKids: options?.madeForKids as YouTubeShortsPublishOptions["madeForKids"],
+          thumbnailUrl: options?.thumbnailUrl as YouTubeShortsPublishOptions["thumbnailUrl"],
+          durationSeconds:
+            options?.durationSeconds as YouTubeShortsPublishOptions["durationSeconds"],
+          defaultLanguage:
+            options?.defaultLanguage as YouTubeShortsPublishOptions["defaultLanguage"],
         });
         return {
           success: result.success,
@@ -213,18 +215,18 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         };
       }
 
-      case 'youtube-long': {
+      case "youtube-long": {
         const result = await publishToYouTubeLong({
           accessToken: credentials.accessToken,
-          videoUrl: mediaUrl || (options?.videoUrl as string) || '',
+          videoUrl: mediaUrl || (options?.videoUrl as string) || "",
           title: (options?.title as string) || content.slice(0, 100),
           description: content,
-          tags: options?.tags as YouTubeLongPublishOptions['tags'],
-          categoryId: options?.categoryId as YouTubeLongPublishOptions['categoryId'],
-          privacyStatus: options?.privacyStatus as YouTubeLongPublishOptions['privacyStatus'],
-          madeForKids: options?.madeForKids as YouTubeLongPublishOptions['madeForKids'],
-          thumbnailUrl: options?.thumbnailUrl as YouTubeLongPublishOptions['thumbnailUrl'],
-          defaultLanguage: options?.defaultLanguage as YouTubeLongPublishOptions['defaultLanguage'],
+          tags: options?.tags as YouTubeLongPublishOptions["tags"],
+          categoryId: options?.categoryId as YouTubeLongPublishOptions["categoryId"],
+          privacyStatus: options?.privacyStatus as YouTubeLongPublishOptions["privacyStatus"],
+          madeForKids: options?.madeForKids as YouTubeLongPublishOptions["madeForKids"],
+          thumbnailUrl: options?.thumbnailUrl as YouTubeLongPublishOptions["thumbnailUrl"],
+          defaultLanguage: options?.defaultLanguage as YouTubeLongPublishOptions["defaultLanguage"],
         });
         return {
           success: result.success,
@@ -242,10 +244,10 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
         };
     }
   } catch (error) {
-    logger.error({ error, platform }, 'Publish failed');
+    logger.error({ error, platform }, "Publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
       platform,
     };
   }
@@ -254,20 +256,16 @@ export async function publish(request: PublishRequest): Promise<PublishResponse>
 /**
  * Publish to multiple platforms concurrently.
  */
-export async function publishToMultiple(
-  requests: PublishRequest[]
-): Promise<PublishResponse[]> {
-  const results = await Promise.allSettled(
-    requests.map((request) => publish(request))
-  );
+export async function publishToMultiple(requests: PublishRequest[]): Promise<PublishResponse[]> {
+  const results = await Promise.allSettled(requests.map((request) => publish(request)));
 
   return results.map((result, index) => {
-    if (result.status === 'fulfilled') {
+    if (result.status === "fulfilled") {
       return result.value;
     }
     return {
       success: false,
-      error: result.reason?.message || 'Publish failed',
+      error: result.reason?.message || "Publish failed",
       platform: requests[index].platform,
     };
   });
@@ -278,17 +276,17 @@ export async function publishToMultiple(
  */
 export function getPlatformDisplayName(platform: SupportedPlatform): string {
   const names: Record<SupportedPlatform, string> = {
-    instagram: 'Instagram',
-    tiktok: 'TikTok',
-    x: 'X (Twitter)',
-    linkedin: 'LinkedIn',
-    facebook: 'Facebook',
-    telegram: 'Telegram',
-    threads: 'Threads',
-    pinterest: 'Pinterest',
-    youtube: 'YouTube',
-    'youtube-shorts': 'YouTube Shorts',
-    'youtube-long': 'YouTube Long-form',
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    x: "X (Twitter)",
+    linkedin: "LinkedIn",
+    facebook: "Facebook",
+    telegram: "Telegram",
+    threads: "Threads",
+    pinterest: "Pinterest",
+    youtube: "YouTube",
+    "youtube-shorts": "YouTube Shorts",
+    "youtube-long": "YouTube Long-form",
   };
   return names[platform] || platform;
 }
@@ -298,16 +296,16 @@ export function getPlatformDisplayName(platform: SupportedPlatform): string {
  */
 export function getSupportedPlatforms(): SupportedPlatform[] {
   return [
-    'instagram',
-    'tiktok',
-    'x',
-    'linkedin',
-    'facebook',
-    'telegram',
-    'threads',
-    'pinterest',
-    'youtube',
-    'youtube-shorts',
-    'youtube-long',
+    "instagram",
+    "tiktok",
+    "x",
+    "linkedin",
+    "facebook",
+    "telegram",
+    "threads",
+    "pinterest",
+    "youtube",
+    "youtube-shorts",
+    "youtube-long",
   ];
 }

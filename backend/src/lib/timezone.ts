@@ -5,27 +5,27 @@
 
 export function utcToLocal(utcDate: Date, timezone: string): Date {
   // Use Intl to get the offset
-  const formatter = new Intl.DateTimeFormat('en-US', {
+  const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: false,
   });
   const parts = formatter.formatToParts(utcDate);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '0';
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
   return new Date(
-    `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`
+    `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}`
   );
 }
 
 export function localToUtc(localDate: Date, timezone: string): Date {
   // Create a date string in the target timezone and parse it as UTC
-  const utcStr = localDate.toLocaleString('en-US', { timeZone: 'UTC' });
-  const targetStr = localDate.toLocaleString('en-US', { timeZone: timezone });
+  const utcStr = localDate.toLocaleString("en-US", { timeZone: "UTC" });
+  const targetStr = localDate.toLocaleString("en-US", { timeZone: timezone });
   const utcDate = new Date(utcStr);
   const targetDate = new Date(targetStr);
   const diff = utcDate.getTime() - targetDate.getTime();
@@ -50,14 +50,18 @@ export function getNextPublishTime(
   return localToUtc(next, merchantTimezone);
 }
 
-export function formatForDisplay(utcDate: Date, timezone: string, locale: string = 'en-US'): string {
+export function formatForDisplay(
+  utcDate: Date,
+  timezone: string,
+  locale: string = "en-US"
+): string {
   return utcDate.toLocaleString(locale, {
     timeZone: timezone,
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 

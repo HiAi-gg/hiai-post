@@ -6,12 +6,11 @@
  * Scopes: pages_manage_posts,pages_read_engagement,pages_show_list
  */
 
-import { encryptToken } from '../../lib/encryption.js';
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
-const FACEBOOK_AUTH_URL = 'https://www.facebook.com/v19.0/dialog/oauth';
-const FACEBOOK_TOKEN_URL = 'https://graph.facebook.com/v19.0/oauth/access_token';
-const FACEBOOK_GRAPH_URL = 'https://graph.facebook.com/v19.0';
+const FACEBOOK_AUTH_URL = "https://www.facebook.com/v19.0/dialog/oauth";
+const FACEBOOK_TOKEN_URL = "https://graph.facebook.com/v19.0/oauth/access_token";
+const FACEBOOK_GRAPH_URL = "https://graph.facebook.com/v19.0";
 
 export interface FacebookOAuthConfig {
   clientId: string;
@@ -56,8 +55,8 @@ export function getFacebookAuthUrl(config: FacebookOAuthConfig, state: string): 
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
-    scope: 'pages_manage_posts,pages_read_engagement,pages_show_list',
-    response_type: 'code',
+    scope: "pages_manage_posts,pages_read_engagement,pages_show_list",
+    response_type: "code",
     state,
   });
   return `${FACEBOOK_AUTH_URL}?${params}`;
@@ -65,26 +64,26 @@ export function getFacebookAuthUrl(config: FacebookOAuthConfig, state: string): 
 
 export async function exchangeFacebookCode(
   config: FacebookOAuthConfig,
-  code: string,
+  code: string
 ): Promise<FacebookTokenResponse> {
   const params = new URLSearchParams({
     client_id: config.clientId,
     client_secret: config.clientSecret,
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
     redirect_uri: config.redirectUri,
     code,
   });
 
   const response = await fetch(FACEBOOK_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
     signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    logger.error({ status: response.status, error: err }, 'Facebook token exchange failed');
+    logger.error({ status: response.status, error: err }, "Facebook token exchange failed");
     throw new Error(`Facebook token exchange failed: ${response.status}`);
   }
 
@@ -95,22 +94,24 @@ export async function exchangeFacebookCode(
 
   return {
     accessToken: data.access_token,
-    expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : new Date(Date.now() + 3600_000),
+    expiresAt: data.expires_in
+      ? new Date(Date.now() + data.expires_in * 1000)
+      : new Date(Date.now() + 3600_000),
   };
 }
 
 export async function refreshFacebookToken(
   config: FacebookOAuthConfig,
-  refreshToken: string,
+  refreshToken: string
 ): Promise<FacebookTokenResponse> {
   const response = await fetch(
     `${FACEBOOK_TOKEN_URL}?grant_type=fb_exchange_token&client_id=${config.clientId}&client_secret=${config.clientSecret}&fb_exchange_token=${refreshToken}`,
-    { method: 'GET', signal: AbortSignal.timeout(15000) },
+    { method: "GET", signal: AbortSignal.timeout(15000) }
   );
 
   if (!response.ok) {
     const err = await response.text();
-    logger.error({ status: response.status, error: err }, 'Facebook token refresh failed');
+    logger.error({ status: response.status, error: err }, "Facebook token refresh failed");
     throw new Error(`Facebook token refresh failed: ${response.status}`);
   }
 
@@ -121,14 +122,19 @@ export async function refreshFacebookToken(
 
   return {
     accessToken: data.access_token,
-    expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : new Date(Date.now() + 3600_000),
+    expiresAt: data.expires_in
+      ? new Date(Date.now() + data.expires_in * 1000)
+      : new Date(Date.now() + 3600_000),
   };
 }
 
 export async function getFacebookUserProfile(accessToken: string): Promise<FacebookProfile> {
-  const meRes = await fetch(`${FACEBOOK_GRAPH_URL}/me?fields=id,name,picture&access_token=${accessToken}`, {
-    signal: AbortSignal.timeout(10000),
-  });
+  const meRes = await fetch(
+    `${FACEBOOK_GRAPH_URL}/me?fields=id,name,picture&access_token=${accessToken}`,
+    {
+      signal: AbortSignal.timeout(10000),
+    }
+  );
 
   if (!meRes.ok) {
     throw new Error(`Facebook profile fetch failed: ${meRes.status}`);
@@ -143,7 +149,7 @@ export async function getFacebookUserProfile(accessToken: string): Promise<Faceb
   // Fetch pages the user manages
   const pagesRes = await fetch(
     `${FACEBOOK_GRAPH_URL}/me/accounts?fields=id,name,access_token,category&access_token=${accessToken}`,
-    { signal: AbortSignal.timeout(10000) },
+    { signal: AbortSignal.timeout(10000) }
   );
 
   const profile: FacebookProfile = {
@@ -173,13 +179,13 @@ export async function getFacebookUserProfile(accessToken: string): Promise<Faceb
 }
 
 export async function publishFacebookPagePost(
-  options: FacebookPublishOptions,
+  options: FacebookPublishOptions
 ): Promise<FacebookPublishResult> {
   try {
     const { accessToken, pageId, message, mediaUrl, link, scheduledPublishTime } = options;
 
     // Video post
-    if (mediaUrl && mediaUrl.match(/\.(mp4|mov|avi|webm)$/i)) {
+    if (mediaUrl?.match(/\.(mp4|mov|avi|webm)$/i)) {
       const params = new URLSearchParams({
         file_url: mediaUrl,
         description: message,
@@ -187,15 +193,15 @@ export async function publishFacebookPagePost(
       });
 
       const response = await fetch(`${FACEBOOK_GRAPH_URL}/${pageId}/videos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params,
         signal: AbortSignal.timeout(120000),
       });
 
       if (!response.ok) {
         const err = await response.text();
-        logger.error({ status: response.status, error: err }, 'Facebook video upload failed');
+        logger.error({ status: response.status, error: err }, "Facebook video upload failed");
         return { success: false, error: `Facebook API error: ${response.status}` };
       }
 
@@ -212,15 +218,15 @@ export async function publishFacebookPagePost(
       });
 
       const response = await fetch(`${FACEBOOK_GRAPH_URL}/${pageId}/photos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: params,
         signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
         const err = await response.text();
-        logger.error({ status: response.status, error: err }, 'Facebook photo upload failed');
+        logger.error({ status: response.status, error: err }, "Facebook photo upload failed");
         return { success: false, error: `Facebook API error: ${response.status}` };
       }
 
@@ -235,34 +241,34 @@ export async function publishFacebookPagePost(
     });
 
     if (link) {
-      feedParams.append('link', link);
+      feedParams.append("link", link);
     }
 
     if (scheduledPublishTime) {
-      feedParams.append('scheduled_publish_time', String(scheduledPublishTime));
-      feedParams.append('published', 'false');
+      feedParams.append("scheduled_publish_time", String(scheduledPublishTime));
+      feedParams.append("published", "false");
     }
 
     const response = await fetch(`${FACEBOOK_GRAPH_URL}/${pageId}/feed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: feedParams,
       signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      logger.error({ status: response.status, error: err }, 'Facebook publish failed');
+      logger.error({ status: response.status, error: err }, "Facebook publish failed");
       return { success: false, error: `Facebook API error: ${response.status}` };
     }
 
     const data = (await response.json()) as { id: string };
     return { success: true, postId: data.id };
   } catch (error) {
-    logger.error({ error }, 'Facebook publish failed');
+    logger.error({ error }, "Facebook publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

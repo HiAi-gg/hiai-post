@@ -1,13 +1,12 @@
 <script lang="ts">
-  import '../app.css';
-  import { AdminSidebar, AdminHeader, ThemeToggle, sidebarStore } from '@hiai/ui';
-  import { hiaiPostPlugin } from '$lib/plugin';
+import "../app.css";
+import { hiaiPostPlugin } from "$lib/plugin";
 
-  let { data, children } = $props();
+let { data, children } = $props();
 
-  const mode = data?.mode ?? 'standalone';
+const _mode = data?.mode ?? "standalone";
 
-  const navGroups = hiaiPostPlugin.navGroups;
+const _navGroups = hiaiPostPlugin.navGroups;
 </script>
 
 <svelte:head>

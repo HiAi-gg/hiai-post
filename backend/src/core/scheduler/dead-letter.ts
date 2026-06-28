@@ -1,6 +1,6 @@
-import type { Redis } from 'ioredis';
+import type { Redis } from "ioredis";
 
-const DEAD_LETTER_PREFIX = 'dead_letter:';
+const DEAD_LETTER_PREFIX = "dead_letter:";
 
 export interface DeadLetterItem {
   postId: string;

@@ -6,9 +6,9 @@
  * without TypeScript errors.
  */
 
-import 'elysia';
+import "elysia";
 
-declare module 'elysia' {
+declare module "elysia" {
   interface ElysiaCustomContext {
     tenantId: string;
     userId: string;

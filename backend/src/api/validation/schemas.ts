@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Pagination
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   sortBy: z.string().optional(),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
 export type PaginationInput = z.infer<typeof paginationSchema>;
@@ -17,27 +17,21 @@ export const idParamSchema = z.object({
 
 // Platform enum
 export const platformEnum = z.enum([
-  'instagram',
-  'tiktok',
-  'x',
-  'linkedin',
-  'facebook',
-  'telegram',
-  'threads',
-  'pinterest',
-  'youtube',
-  'youtube-shorts',
-  'youtube-long',
+  "instagram",
+  "tiktok",
+  "x",
+  "linkedin",
+  "facebook",
+  "telegram",
+  "threads",
+  "pinterest",
+  "youtube",
+  "youtube-shorts",
+  "youtube-long",
 ]);
 
 // Post status enum
-export const postStatusEnum = z.enum([
-  'draft',
-  'scheduled',
-  'publishing',
-  'published',
-  'failed',
-]);
+export const postStatusEnum = z.enum(["draft", "scheduled", "publishing", "published", "failed"]);
 
 // Create post
 export const createPostSchema = z.object({
@@ -77,7 +71,10 @@ export const createContentPlanSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
   date: z.string().datetime(),
-  slotTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  slotTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
   postId: z.string().uuid().optional(),
   campaignId: z.string().uuid().optional(),
 });
@@ -103,8 +100,8 @@ export const createTemplateSchema = z.object({
 export const generatePostSchema = z.object({
   topic: z.string().min(3).max(500),
   platforms: z.array(platformEnum).min(1).max(6),
-  tone: z.enum(['professional', 'casual', 'humorous', 'inspirational']).default('professional'),
-  language: z.string().min(2).max(5).default('en'),
+  tone: z.enum(["professional", "casual", "humorous", "inspirational"]).default("professional"),
+  language: z.string().min(2).max(5).default("en"),
   includeHashtags: z.boolean().default(true),
   includeEmoji: z.boolean().default(true),
 });

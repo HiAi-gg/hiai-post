@@ -3,9 +3,9 @@
  * to find optimal posting times per platform.
  */
 
-import { db } from '../../db/index.js';
-import { posts, postAnalytics } from '../../db/schema.js';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { db } from "../../db/index.js";
+import { postAnalytics, posts } from "../../db/schema.js";
 
 export interface BestTimeSlot {
   platform: string;
@@ -15,7 +15,16 @@ export interface BestTimeSlot {
   postCount: number;
 }
 
-export type Platform = 'instagram' | 'x' | 'linkedin' | 'tiktok' | 'facebook' | 'telegram' | 'threads' | 'pinterest' | 'youtube';
+export type Platform =
+  | "instagram"
+  | "x"
+  | "linkedin"
+  | "tiktok"
+  | "facebook"
+  | "telegram"
+  | "threads"
+  | "pinterest"
+  | "youtube";
 
 /**
  * Get best posting times based on historical engagement data for a tenant.
@@ -23,17 +32,17 @@ export type Platform = 'instagram' | 'x' | 'linkedin' | 'tiktok' | 'facebook' | 
  */
 export async function getBestPostingTimes(
   tenantId: string,
-  platform?: Platform,
+  platform?: Platform
 ): Promise<BestTimeSlot[]> {
   const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const to = new Date();
 
   const conditions = and(
     eq(posts.tenantId, tenantId),
-    eq(posts.status, 'published'),
+    eq(posts.status, "published"),
     gte(posts.publishedAt, from),
     lte(posts.publishedAt, to),
-    platform ? eq(posts.platform, platform) : undefined,
+    platform ? eq(posts.platform, platform) : undefined
   );
 
   const results = await db
@@ -50,7 +59,7 @@ export async function getBestPostingTimes(
     .groupBy(
       posts.platform,
       sql`extract(hour from ${posts.publishedAt})`,
-      sql`extract(dow from ${posts.publishedAt})`,
+      sql`extract(dow from ${posts.publishedAt})`
     );
 
   // Group by platform and rank by avgEngagementRate, take top 3 per platform
@@ -77,5 +86,7 @@ export async function getBestPostingTimes(
     best.push(...slots.slice(0, 3));
   }
 
-  return best.sort((a, b) => a.platform.localeCompare(b.platform) || b.avgEngagementRate - a.avgEngagementRate);
+  return best.sort(
+    (a, b) => a.platform.localeCompare(b.platform) || b.avgEngagementRate - a.avgEngagementRate
+  );
 }

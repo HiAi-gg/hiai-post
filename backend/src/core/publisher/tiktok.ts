@@ -2,7 +2,7 @@
  * TikTok publisher — publish videos via TikTok Content Posting API.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface TikTokPublishOptions {
   accessToken: string;
@@ -11,7 +11,11 @@ export interface TikTokPublishOptions {
   title: string;
   description?: string;
   hashtags?: string[];
-  privacyLevel?: 'PUBLIC_TO_EVERYONE' | 'MUTUAL_FOLLOW_FRIENDS' | 'FOLLOWER_OF_CREATOR' | 'SELF_ONLY';
+  privacyLevel?:
+    | "PUBLIC_TO_EVERYONE"
+    | "MUTUAL_FOLLOW_FRIENDS"
+    | "FOLLOWER_OF_CREATOR"
+    | "SELF_ONLY";
 }
 
 interface TikTokPublishResult {
@@ -31,69 +35,56 @@ export async function getTikTokPublishStatus(
     const response = await fetch(
       `https://open.tiktokapis.com/v2/post/publish/status/fetch/?publish_id=${publishId}`,
       {
-        method: 'GET',
+        method: "GET",
         headers: { Authorization: `Bearer ${accessToken}` },
         signal: AbortSignal.timeout(10000),
       }
     );
     if (!response.ok) {
-      return { status: 'unknown', error: `Status check failed: ${response.status}` };
+      return { status: "unknown", error: `Status check failed: ${response.status}` };
     }
     const data = (await response.json()) as { data?: { status?: string; fail_reason?: string } };
-    return { status: data.data?.status || 'unknown', error: data.data?.fail_reason };
+    return { status: data.data?.status || "unknown", error: data.data?.fail_reason };
   } catch (error) {
-    return { status: 'unknown', error: error instanceof Error ? error.message : 'Unknown error' };
+    return { status: "unknown", error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
 /**
  * Publish a video to TikTok.
  */
-export async function publishToTikTok(
-  options: TikTokPublishOptions
-): Promise<TikTokPublishResult> {
+export async function publishToTikTok(options: TikTokPublishOptions): Promise<TikTokPublishResult> {
   try {
-    const {
-      accessToken,
-      openId,
-      videoUrl,
-      title,
-      description,
-      hashtags,
-      privacyLevel,
-    } = options;
+    const { accessToken, openId, videoUrl, title, description, hashtags, privacyLevel } = options;
 
     // Step 1: Initialize video upload
-    const initResponse = await fetch(
-      'https://open.tiktokapis.com/v2/post/publish/video/init/',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json; charset=UTF-8',
+    const initResponse = await fetch("https://open.tiktokapis.com/v2/post/publish/video/init/", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({
+        post_info: {
+          title: title.slice(0, 150),
+          description: description || title,
+          hashtags: hashtags?.map((tag) => ({ name: tag.replace("#", "") })) || [],
+          privacy_level: privacyLevel || "PUBLIC_TO_EVERYONE",
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
         },
-        body: JSON.stringify({
-          post_info: {
-            title: title.slice(0, 150),
-            description: description || title,
-            hashtags: hashtags?.map((tag) => ({ name: tag.replace('#', '') })) || [],
-            privacy_level: privacyLevel || 'PUBLIC_TO_EVERYONE',
-            disable_duet: false,
-            disable_comment: false,
-            disable_stitch: false,
-          },
-          source_info: {
-            source: 'FILE_UPLOAD',
-            video_url: videoUrl,
-          },
-        }),
-        signal: AbortSignal.timeout(30000),
-      }
-    );
+        source_info: {
+          source: "FILE_UPLOAD",
+          video_url: videoUrl,
+        },
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
 
     if (!initResponse.ok) {
       const errorText = await initResponse.text();
-      logger.error({ status: initResponse.status, error: errorText }, 'TikTok init failed');
+      logger.error({ status: initResponse.status, error: errorText }, "TikTok init failed");
       return {
         success: false,
         error: `TikTok API error: ${initResponse.status}`,
@@ -108,7 +99,7 @@ export async function publishToTikTok(
     if (initData.error?.code) {
       return {
         success: false,
-        error: initData.error.message || 'TikTok publish failed',
+        error: initData.error.message || "TikTok publish failed",
       };
     }
 
@@ -120,7 +111,7 @@ export async function publishToTikTok(
       const statusResponse = await fetch(
         `https://open.tiktokapis.com/v2/post/publish/status/fetch/?publish_id=${publishId}`,
         {
-          method: 'GET',
+          method: "GET",
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
@@ -132,19 +123,16 @@ export async function publishToTikTok(
         const statusData = (await statusResponse.json()) as {
           data?: { status?: string };
         };
-        logger.info(
-          { publishId, status: statusData.data?.status },
-          'TikTok publish status'
-        );
+        logger.info({ publishId, status: statusData.data?.status }, "TikTok publish status");
       }
     }
 
     return { success: true, publishId };
   } catch (error) {
-    logger.error({ error }, 'TikTok publish failed');
+    logger.error({ error }, "TikTok publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

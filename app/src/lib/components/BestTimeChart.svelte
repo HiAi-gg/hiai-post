@@ -1,89 +1,72 @@
 <script lang="ts">
-  /**
-   * BestTimeChart — heatmap of best posting times by day-of-week × hour,
-   * plus a per-platform top-3 best-time list.
-   *
-   * Accepts `BestTimeSlot[]` from `core/analytics/best-time.ts`:
-   *   { platform: string, hour: 0..23, dayOfWeek: 0..6 (0=Sun),
-   *     avgEngagementRate: number, postCount: number }
-   *
-   * The heatmap colors each (day, hour) cell by avg engagement rate
-   * (intensity = rate / maxRate across all supplied slots). Cells with
-   * no data are rendered as a subtle dashed placeholder so the grid
-   * remains visually complete.
-   */
-  import { platformBrandColors, platformFallbackColor } from '$lib/platform-brand-colors';
+type Slot = {
+  platform: string;
+  hour: number;
+  dayOfWeek: number;
+  avgEngagementRate: number;
+  postCount: number;
+};
 
-  type Slot = {
-    platform: string;
-    hour: number;
-    dayOfWeek: number;
-    avgEngagementRate: number;
-    postCount: number;
-  };
+let {
+  slots = [] as Slot[],
+  title = "Best Posting Times",
+}: {
+  slots?: Slot[];
+  title?: string;
+} = $props();
 
-  let {
-    slots = [] as Slot[],
-    title = 'Best Posting Times',
-  }: {
-    slots?: Slot[];
-    title?: string;
-  } = $props();
+const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const _hours = Array.from({ length: 24 }, (_, h) => h);
 
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const hours = Array.from({ length: 24 }, (_, h) => h);
-
-  // Build a 7×24 lookup keyed by `${dayOfWeek}:${hour}`.
-  const cellMap = $derived.by(() => {
-    const m = new Map<string, { rate: number; count: number; platform: string }>();
-    for (const s of slots) {
-      const key = `${s.dayOfWeek}:${s.hour}`;
-      // If multiple platforms map to the same cell, keep the highest rate.
-      const existing = m.get(key);
-      if (!existing || s.avgEngagementRate > existing.rate) {
-        m.set(key, { rate: s.avgEngagementRate, count: s.postCount, platform: s.platform });
-      }
+// Build a 7×24 lookup keyed by `${dayOfWeek}:${hour}`.
+const cellMap = $derived.by(() => {
+  const m = new Map<string, { rate: number; count: number; platform: string }>();
+  for (const s of slots) {
+    const key = `${s.dayOfWeek}:${s.hour}`;
+    // If multiple platforms map to the same cell, keep the highest rate.
+    const existing = m.get(key);
+    if (!existing || s.avgEngagementRate > existing.rate) {
+      m.set(key, { rate: s.avgEngagementRate, count: s.postCount, platform: s.platform });
     }
-    return m;
-  });
-
-  const maxRate = $derived(
-    Math.max(0, ...Array.from(cellMap.values()).map((c) => c.rate))
-  );
-
-  // Per-platform top 3 list (slot array already arrives pre-sorted per platform).
-  const topPerPlatform = $derived.by(() => {
-    const grouped = new Map<string, Slot[]>();
-    for (const s of slots) {
-      const arr = grouped.get(s.platform) ?? [];
-      arr.push(s);
-      grouped.set(s.platform, arr);
-    }
-    return Array.from(grouped.entries()).map(([platform, list]) => ({
-      platform,
-      items: list.slice(0, 3),
-    }));
-  });
-
-  function colorForRate(rate: number): string {
-    if (maxRate <= 0) return 'transparent';
-    const t = Math.max(0, Math.min(1, rate / maxRate));
-    // Gradient from muted blue (low) to vivid primary (high).
-    // Mix between hsl(220, 60%, 92%) and hsl(220, 90%, 45%).
-    const lightness = 92 - t * 47;
-    const saturation = 60 + t * 30;
-    return `hsl(220, ${saturation}%, ${lightness}%)`;
   }
+  return m;
+});
 
-  function formatHour(h: number): string {
-    if (h === 0) return '12a';
-    if (h === 12) return '12p';
-    return h < 12 ? `${h}a` : `${h - 12}p`;
-  }
+const maxRate = $derived(Math.max(0, ...Array.from(cellMap.values()).map((c) => c.rate)));
 
-  function formatSlot(s: Slot): string {
-    return `${days[s.dayOfWeek]} ${formatHour(s.hour)} · ${s.avgEngagementRate.toFixed(1)}%`;
+// Per-platform top 3 list (slot array already arrives pre-sorted per platform).
+const _topPerPlatform = $derived.by(() => {
+  const grouped = new Map<string, Slot[]>();
+  for (const s of slots) {
+    const arr = grouped.get(s.platform) ?? [];
+    arr.push(s);
+    grouped.set(s.platform, arr);
   }
+  return Array.from(grouped.entries()).map(([platform, list]) => ({
+    platform,
+    items: list.slice(0, 3),
+  }));
+});
+
+function _colorForRate(rate: number): string {
+  if (maxRate <= 0) return "transparent";
+  const t = Math.max(0, Math.min(1, rate / maxRate));
+  // Gradient from muted blue (low) to vivid primary (high).
+  // Mix between hsl(220, 60%, 92%) and hsl(220, 90%, 45%).
+  const lightness = 92 - t * 47;
+  const saturation = 60 + t * 30;
+  return `hsl(220, ${saturation}%, ${lightness}%)`;
+}
+
+function formatHour(h: number): string {
+  if (h === 0) return "12a";
+  if (h === 12) return "12p";
+  return h < 12 ? `${h}a` : `${h - 12}p`;
+}
+
+function _formatSlot(s: Slot): string {
+  return `${days[s.dayOfWeek]} ${formatHour(s.hour)} · ${s.avgEngagementRate.toFixed(1)}%`;
+}
 </script>
 
 <div class="bg-card border border-border rounded-lg p-6">

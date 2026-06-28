@@ -1,12 +1,12 @@
-import { Mastra } from '@mastra/core';
-import { contentGenerateWorkflow } from './workflows/content-generate.js';
-import { writerAgent } from './agents/writer.js';
-import { optimizerAgent } from './agents/optimizer.js';
+import { Mastra } from "@mastra/core";
+import { optimizerAgent } from "./agents/optimizer.js";
+import { writerAgent } from "./agents/writer.js";
+import { contentGenerateWorkflow } from "./workflows/content-generate.js";
 
 export function createMastra(): Mastra {
   const mastra = new Mastra({
     workflows: {
-      'content-generate': contentGenerateWorkflow,
+      "content-generate": contentGenerateWorkflow,
     },
     agents: {
       writer: writerAgent,

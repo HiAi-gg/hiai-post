@@ -1,6 +1,12 @@
 <script lang="ts">
-  interface Post { id: string; contentText?: string; platform: string; scheduledAt?: string; status: string; }
-  let { posts = [] as Post[] } = $props();
+interface Post {
+  id: string;
+  contentText?: string;
+  platform: string;
+  scheduledAt?: string;
+  status: string;
+}
+let { posts = [] as Post[] } = $props();
 </script>
 
 <div class="bg-card border border-border rounded-lg overflow-hidden">

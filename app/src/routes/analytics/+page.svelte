@@ -1,48 +1,47 @@
 <script lang="ts">
-  import type { PageData } from './$types';
-  import BestTimeChart from '$lib/components/BestTimeChart.svelte';
+import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
-  const a = $derived(data.overview);
-  const platforms = $derived(data.platforms);
-  const topPosts = $derived(data.topPosts);
-  const timeline = $derived(data.timeline);
-  const bestHours = $derived(data.bestHours);
-  const bestTimes = $derived(data.bestTimes ?? []);
+let { data }: { data: PageData } = $props();
+const _a = $derived(data.overview);
+const _platforms = $derived(data.platforms);
+const _topPosts = $derived(data.topPosts);
+const timeline = $derived(data.timeline);
+const _bestHours = $derived(data.bestHours);
+const _bestTimes = $derived(data.bestTimes ?? []);
 
-  // Platform icon/color map
-  const platformMeta: Record<string, { icon: string; color: string; bg: string }> = {
-    instagram: { icon: '📷', color: 'text-pink-600', bg: 'bg-pink-50 dark:bg-pink-950' },
-    x: { icon: '𝕏', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },
-    linkedin: { icon: '💼', color: 'text-blue-700', bg: 'bg-blue-50 dark:bg-blue-950' },
-    tiktok: { icon: '🎵', color: 'text-gray-900', bg: 'bg-gray-50 dark:bg-gray-900' },
-    facebook: { icon: '📘', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },
-    telegram: { icon: '✈️', color: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-950' },
-  };
+// Platform icon/color map
+const platformMeta: Record<string, { icon: string; color: string; bg: string }> = {
+  instagram: { icon: "📷", color: "text-pink-600", bg: "bg-pink-50 dark:bg-pink-950" },
+  x: { icon: "𝕏", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950" },
+  linkedin: { icon: "💼", color: "text-blue-700", bg: "bg-blue-50 dark:bg-blue-950" },
+  tiktok: { icon: "🎵", color: "text-gray-900", bg: "bg-gray-50 dark:bg-gray-900" },
+  facebook: { icon: "📘", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950" },
+  telegram: { icon: "✈️", color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950" },
+};
 
-  function getMeta(platform: string) {
-    return platformMeta[platform] ?? { icon: '📱', color: 'text-muted-foreground', bg: 'bg-muted' };
-  }
+function _getMeta(platform: string) {
+  return platformMeta[platform] ?? { icon: "📱", color: "text-muted-foreground", bg: "bg-muted" };
+}
 
-  function formatNum(n: number): string {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-    return n.toString();
-  }
+function _formatNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
+}
 
-  // Find max for timeline chart scaling
-  const maxTimelineCount = $derived(Math.max(...timeline.map(d => d.count), 1));
+// Find max for timeline chart scaling
+const _maxTimelineCount = $derived(Math.max(...timeline.map((d) => d.count), 1));
 
-  // Time range selector
-  let timeRange = $state('30d');
-  const ranges = ['7d', '30d', '90d', 'all'] as const;
+// Time range selector
+let _timeRange = $state("30d");
+const _ranges = ["7d", "30d", "90d", "all"] as const;
 
-  function getDays(r: string): number {
-    if (r === '7d') return 7;
-    if (r === '90d') return 90;
-    if (r === 'all') return 365;
-    return 30;
-  }
+function _getDays(r: string): number {
+  if (r === "7d") return 7;
+  if (r === "90d") return 90;
+  if (r === "all") return 365;
+  return 30;
+}
 </script>
 
 <svelte:head>

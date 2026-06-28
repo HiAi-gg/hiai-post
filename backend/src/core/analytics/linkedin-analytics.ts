@@ -2,7 +2,7 @@
  * LinkedIn Analytics client — fetch share engagement metrics via Marketing API.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface PostAnalytics {
   postId: string;
@@ -18,9 +18,16 @@ export interface PostAnalytics {
   fetchedAt: Date;
 }
 
-function computeEngagementRate(metrics: { likes: number; comments: number; shares: number; impressions: number }): number {
+function computeEngagementRate(metrics: {
+  likes: number;
+  comments: number;
+  shares: number;
+  impressions: number;
+}): number {
   const totalEngagement = metrics.likes + metrics.comments + metrics.shares;
-  return metrics.impressions > 0 ? Math.round((totalEngagement / metrics.impressions) * 10000) / 100 : 0;
+  return metrics.impressions > 0
+    ? Math.round((totalEngagement / metrics.impressions) * 10000) / 100
+    : 0;
 }
 
 interface SocialActionsResponse {
@@ -33,7 +40,7 @@ interface SocialActionsResponse {
  */
 export async function fetchLinkedInAnalytics(
   shareId: string,
-  accessToken: string,
+  accessToken: string
 ): Promise<PostAnalytics | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -44,18 +51,18 @@ export async function fetchLinkedInAnalytics(
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'X-Restli-Protocol-Version': '2.0.0',
+        "X-Restli-Protocol-Version": "2.0.0",
       },
       signal: controller.signal,
     });
 
     if (response.status === 429) {
-      logger.warn({ shareId }, 'LinkedIn API rate limited (429)');
+      logger.warn({ shareId }, "LinkedIn API rate limited (429)");
       return null;
     }
 
     if (!response.ok) {
-      logger.error({ status: response.status, shareId }, 'LinkedIn analytics fetch failed');
+      logger.error({ status: response.status, shareId }, "LinkedIn analytics fetch failed");
       return null;
     }
 
@@ -66,7 +73,7 @@ export async function fetchLinkedInAnalytics(
 
     return {
       postId: shareId,
-      platform: 'linkedin',
+      platform: "linkedin",
       impressions: 0,
       reach: 0,
       engagementRate,
@@ -78,7 +85,7 @@ export async function fetchLinkedInAnalytics(
       fetchedAt: new Date(),
     };
   } catch (error) {
-    logger.error({ error, shareId }, 'LinkedIn analytics fetch error');
+    logger.error({ error, shareId }, "LinkedIn analytics fetch error");
     return null;
   } finally {
     clearTimeout(timeout);

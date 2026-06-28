@@ -1,33 +1,32 @@
-import { Elysia } from 'elysia';
-import { db } from '../../lib/db.js';
-import { posts, socialAccounts } from '../../db/schema.js';
-import { eq, and, desc, sql, ilike } from 'drizzle-orm';
-import { tenantMiddleware } from '../middleware/tenant.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { createRateLimiter } from '../middleware/rateLimiter.js';
+import { createHash } from "node:crypto";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { Elysia } from "elysia";
+import { posts } from "../../db/schema.js";
+import { db } from "../../lib/db.js";
+import { logger } from "../../lib/logger.js";
+import { enqueuePost, removeQueuedPost } from "../../lib/redis.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { tenantMiddleware } from "../middleware/tenant.js";
 import {
   createPostSchema,
-  updatePostSchema,
-  schedulePostSchema,
   paginationSchema,
-  postStatusEnum,
-} from '../validation/schemas.js';
-import { enqueuePost, removeQueuedPost } from '../../lib/redis.js';
-import { logger } from '../../lib/logger.js';
-import { createHash } from 'node:crypto';
+  schedulePostSchema,
+  updatePostSchema,
+} from "../validation/schemas.js";
 
-const log = logger.child({ module: 'posts-route' });
+const _log = logger.child({ module: "posts-route" });
 
-export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
-  .use(createRateLimiter('authenticated') as any)
+export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
+  .use(createRateLimiter("authenticated") as any)
   .use(authMiddleware)
   .use(tenantMiddleware)
   // List posts with pagination and filters
-  .get('/', async ({ tenantId, query }: any) => {
+  .get("/", async ({ tenantId, query }: any) => {
     const { page, limit, sortBy, sortOrder } = paginationSchema.parse(query);
     const status = query.status as string | undefined;
     const platform = query.platform as string | undefined;
-    const search = query.search as string | undefined;
+    const _search = query.search as string | undefined;
 
     const conditions = [eq(posts.tenantId, tenantId)];
     if (status) conditions.push(eq(posts.status, status));
@@ -59,7 +58,7 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
     };
   })
   // Get single post
-  .get('/:id', async ({ params, tenantId, set }: any) => {
+  .get("/:id", async ({ params, tenantId, set }: any) => {
     const [post] = await db
       .select()
       .from(posts)
@@ -68,17 +67,14 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
 
     if (!post) {
       set.status = 404;
-      return { error: 'Post not found' };
+      return { error: "Post not found" };
     }
     return { post };
   })
   // Create post
-  .post('/', async ({ body, tenantId, set }: any) => {
+  .post("/", async ({ body, tenantId, set }: any) => {
     const input = createPostSchema.parse(body);
-    const contentHash = createHash('sha256')
-      .update(input.contentText)
-      .digest('hex')
-      .slice(0, 16);
+    const contentHash = createHash("sha256").update(input.contentText).digest("hex").slice(0, 16);
 
     const [post] = await db
       .insert(posts)
@@ -89,7 +85,7 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
         contentJson: input.contentJson || null,
         mediaUrls: input.mediaUrls,
         platform: input.platform || null,
-        status: input.scheduledAt ? 'scheduled' : 'draft',
+        status: input.scheduledAt ? "scheduled" : "draft",
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
         contentHash,
       })
@@ -104,7 +100,7 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
     return { post };
   })
   // Update post
-  .put('/:id', async ({ params, body, tenantId, set }: any) => {
+  .put("/:id", async ({ params, body, tenantId, set }: any) => {
     const input = updatePostSchema.parse(body);
     const [existing] = await db
       .select()
@@ -114,20 +110,20 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
 
     if (!existing) {
       set.status = 404;
-      return { error: 'Post not found' };
+      return { error: "Post not found" };
     }
 
-    if (existing.status === 'published') {
+    if (existing.status === "published") {
       set.status = 400;
-      return { error: 'Cannot edit published posts' };
+      return { error: "Cannot edit published posts" };
     }
 
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
     if (input.contentText !== undefined) {
       updateData.contentText = input.contentText;
-      updateData.contentHash = createHash('sha256')
+      updateData.contentHash = createHash("sha256")
         .update(input.contentText)
-        .digest('hex')
+        .digest("hex")
         .slice(0, 16);
     }
     if (input.contentJson !== undefined) updateData.contentJson = input.contentJson;
@@ -137,7 +133,7 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
 
     if (input.scheduledAt !== undefined) {
       updateData.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
-      updateData.status = input.scheduledAt ? 'scheduled' : 'draft';
+      updateData.status = input.scheduledAt ? "scheduled" : "draft";
 
       // Update Redis queue
       await removeQueuedPost(tenantId, params.id);
@@ -155,7 +151,7 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
     return { post: updated };
   })
   // Delete post
-  .delete('/:id', async ({ params, tenantId, set }: any) => {
+  .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db
       .delete(posts)
       .where(and(eq(posts.id, params.id), eq(posts.tenantId, tenantId)))
@@ -163,14 +159,14 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
 
     if (!deleted) {
       set.status = 404;
-      return { error: 'Post not found' };
+      return { error: "Post not found" };
     }
 
     await removeQueuedPost(tenantId, params.id);
     return { success: true };
   })
   // Schedule post
-  .post('/:id/schedule', async ({ params, body, tenantId, set }: any) => {
+  .post("/:id/schedule", async ({ params, body, tenantId, set }: any) => {
     const { scheduledAt } = schedulePostSchema.parse(body);
     const [post] = await db
       .select()
@@ -180,12 +176,12 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
 
     if (!post) {
       set.status = 404;
-      return { error: 'Post not found' };
+      return { error: "Post not found" };
     }
 
     const [updated] = await db
       .update(posts)
-      .set({ scheduledAt: new Date(scheduledAt), status: 'scheduled', updatedAt: new Date() })
+      .set({ scheduledAt: new Date(scheduledAt), status: "scheduled", updatedAt: new Date() })
       .where(eq(posts.id, params.id))
       .returning();
 
@@ -193,7 +189,7 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
     return { post: updated };
   })
   // Publish now
-  .post('/:id/publish', async ({ params, tenantId, set }: any) => {
+  .post("/:id/publish", async ({ params, tenantId, set }: any) => {
     const [post] = await db
       .select()
       .from(posts)
@@ -202,20 +198,20 @@ export const postsRoutes = new Elysia({ prefix: '/api/v1/posts' })
 
     if (!post) {
       set.status = 404;
-      return { error: 'Post not found' };
+      return { error: "Post not found" };
     }
 
-    if (post.status === 'published') {
+    if (post.status === "published") {
       set.status = 400;
-      return { error: 'Post already published' };
+      return { error: "Post already published" };
     }
 
     // Mark as publishing — actual publishing handled by scheduler
     const [updated] = await db
       .update(posts)
-      .set({ status: 'publishing', updatedAt: new Date() })
+      .set({ status: "publishing", updatedAt: new Date() })
       .where(eq(posts.id, params.id))
       .returning();
 
-    return { post: updated, message: 'Post queued for immediate publishing' };
+    return { post: updated, message: "Post queued for immediate publishing" };
   });

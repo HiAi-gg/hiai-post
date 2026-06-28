@@ -25,17 +25,17 @@
  *     still setting `keyPrefix: 'hipost:'` for parity with the main client.
  */
 
-import Redis from 'ioredis';
-import { config } from '../../lib/config.js';
-import { logger } from '../../lib/logger.js';
+import Redis from "ioredis";
+import { config } from "../../lib/config.js";
+import { logger } from "../../lib/logger.js";
 
-const log = logger.child({ module: 'store-listener' });
+const log = logger.child({ module: "store-listener" });
 
 /** Single shared channel for all hiai-store → hiai-post events. */
-export const STORE_EVENT_CHANNEL = 'hiai-store:events';
+export const STORE_EVENT_CHANNEL = "hiai-store:events";
 
 /** Event types currently published on `STORE_EVENT_CHANNEL`. */
-export const STORE_EVENT_TYPES = ['product.created', 'product.updated'] as const;
+export const STORE_EVENT_TYPES = ["product.created", "product.updated"] as const;
 export type StoreEventType = (typeof STORE_EVENT_TYPES)[number];
 
 /** Flat envelope shape published by hiai-store. */
@@ -58,26 +58,28 @@ let subscriber: Redis | null = null;
  */
 export async function startStoreListener(): Promise<void> {
   if (subscriber) {
-    log.warn('Store event listener already running; reusing existing subscriber');
+    log.warn("Store event listener already running; reusing existing subscriber");
     return;
   }
 
   subscriber = new Redis(config.REDIS_URL, {
-    keyPrefix: 'hipost:',
+    keyPrefix: "hipost:",
     maxRetriesPerRequest: null, // pub/sub clients must not fail commands
     lazyConnect: true,
   });
 
-  subscriber.on('connect', () => log.info({ channel: STORE_EVENT_CHANNEL }, 'Store event subscriber connected'));
-  subscriber.on('error', (err) => log.error({ err }, 'Store event subscriber error'));
+  subscriber.on("connect", () =>
+    log.info({ channel: STORE_EVENT_CHANNEL }, "Store event subscriber connected")
+  );
+  subscriber.on("error", (err) => log.error({ err }, "Store event subscriber error"));
 
   await subscriber.connect();
   await subscriber.subscribe(STORE_EVENT_CHANNEL);
-  subscriber.on('message', (channel, message) => {
+  subscriber.on("message", (channel, message) => {
     void handleMessage(channel, message);
   });
 
-  log.info({ channel: STORE_EVENT_CHANNEL }, 'Store event listener started');
+  log.info({ channel: STORE_EVENT_CHANNEL }, "Store event listener started");
 }
 
 /**
@@ -90,17 +92,17 @@ export async function stopStoreListener(): Promise<void> {
   try {
     await subscriber.unsubscribe(STORE_EVENT_CHANNEL);
   } catch (err) {
-    log.warn({ err }, 'Unsubscribe failed during shutdown');
+    log.warn({ err }, "Unsubscribe failed during shutdown");
   }
 
   try {
     subscriber.disconnect();
   } catch (err) {
-    log.warn({ err }, 'Disconnect failed during shutdown');
+    log.warn({ err }, "Disconnect failed during shutdown");
   }
 
   subscriber = null;
-  log.info('Store event listener stopped');
+  log.info("Store event listener stopped");
 }
 
 /** True when a subscriber is currently active. */
@@ -110,7 +112,7 @@ export function isStoreListenerRunning(): boolean {
 
 async function handleMessage(channel: string, raw: string): Promise<void> {
   if (channel !== STORE_EVENT_CHANNEL) {
-    log.warn({ channel }, 'Received message on unexpected channel');
+    log.warn({ channel }, "Received message on unexpected channel");
     return;
   }
 
@@ -118,12 +120,12 @@ async function handleMessage(channel: string, raw: string): Promise<void> {
   try {
     event = JSON.parse(raw) as StoreEvent;
   } catch (err) {
-    log.error({ err, channel, raw }, 'Invalid event payload (not JSON)');
+    log.error({ err, channel, raw }, "Invalid event payload (not JSON)");
     return;
   }
 
-  if (!event || typeof event.tenantId !== 'string' || typeof event.productId !== 'string') {
-    log.error({ channel, event }, 'Event payload missing required fields (tenantId, productId)');
+  if (!event || typeof event.tenantId !== "string" || typeof event.productId !== "string") {
+    log.error({ channel, event }, "Event payload missing required fields (tenantId, productId)");
     return;
   }
 
@@ -137,6 +139,6 @@ async function handleMessage(channel: string, raw: string): Promise<void> {
       productUrl: event.productUrl,
       productImage: event.productImage,
     },
-    'Received hiai-store event',
+    "Received hiai-store event"
   );
 }

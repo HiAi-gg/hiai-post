@@ -1,56 +1,56 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+import { goto } from "$app/navigation";
 
-  const PLATFORMS = ['instagram', 'tiktok', 'x', 'linkedin', 'facebook', 'telegram'];
+const _PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
 
-  let platform = $state('instagram');
-  let contentText = $state('');
-  let scheduledAt = $state('');
-  let saving = $state(false);
-  let generating = $state(false);
-  let topic = $state('');
+let platform = $state("instagram");
+let contentText = $state("");
+let scheduledAt = $state("");
+let _saving = $state(false);
+let _generating = $state(false);
+let topic = $state("");
 
-  async function save(status: 'draft' | 'scheduled') {
-    saving = true;
-    try {
-      const res = await fetch('/api/v1/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contentText,
-          platform,
-          status,
-          scheduledAt: status === 'scheduled' ? scheduledAt : undefined,
-        }),
-      });
-      if (res.ok) {
-        const body = await res.json();
-        goto(`/posts/${body.data.id}`);
-      }
-    } finally {
-      saving = false;
+async function _save(status: "draft" | "scheduled") {
+  _saving = true;
+  try {
+    const res = await fetch("/api/v1/posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contentText,
+        platform,
+        status,
+        scheduledAt: status === "scheduled" ? scheduledAt : undefined,
+      }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      goto(`/posts/${body.data.id}`);
     }
+  } finally {
+    _saving = false;
   }
+}
 
-  async function generateWithAI() {
-    if (!topic) return;
-    generating = true;
-    try {
-      const res = await fetch('/api/v1/posts/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, platforms: [platform] }),
-      });
-      if (res.ok) {
-        const body = await res.json();
-        if (body.posts?.[0]?.content) {
-          contentText = body.posts[0].content;
-        }
+async function _generateWithAI() {
+  if (!topic) return;
+  _generating = true;
+  try {
+    const res = await fetch("/api/v1/posts/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, platforms: [platform] }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      if (body.posts?.[0]?.content) {
+        contentText = body.posts[0].content;
       }
-    } finally {
-      generating = false;
     }
+  } finally {
+    _generating = false;
   }
+}
 </script>
 
 <svelte:head>

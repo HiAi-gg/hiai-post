@@ -1,6 +1,6 @@
-import type { PublishQueue } from './queue.js';
-import { shouldRetry, getNextRetryTime } from './retry.js';
-import { checkLimit, incrementCounter } from './rate-limiter.js';
+import type { PublishQueue } from "./queue.js";
+import { checkLimit, incrementCounter } from "./rate-limiter.js";
+import { getNextRetryTime, shouldRetry } from "./retry.js";
 
 export interface PublishResult {
   success: boolean;
@@ -10,7 +10,11 @@ export interface PublishResult {
 
 export interface PublisherAdapter {
   platform: string;
-  publish(postId: string, content: string, metadata: Record<string, unknown>): Promise<PublishResult>;
+  publish(
+    postId: string,
+    content: string,
+    metadata: Record<string, unknown>
+  ): Promise<PublishResult>;
 }
 
 const adapters = new Map<string, PublisherAdapter>();
@@ -57,7 +61,7 @@ export class Publisher {
 
     this.intervalId = setInterval(() => {
       this.tick().catch((err) => {
-        console.error('[Publisher] tick error:', err);
+        console.error("[Publisher] tick error:", err);
       });
     }, intervalMs);
 
@@ -68,7 +72,7 @@ export class Publisher {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('[Publisher] stopped');
+      console.log("[Publisher] stopped");
     }
   }
 
@@ -106,7 +110,7 @@ export class Publisher {
     }
 
     try {
-      await this.postStore.updateStatus(postId, 'publishing');
+      await this.postStore.updateStatus(postId, "publishing");
 
       const result = await adapter.publish(postId, post.contentText, {
         mediaUrls: post.mediaUrls,
@@ -114,14 +118,14 @@ export class Publisher {
       });
 
       if (result.success) {
-        await this.postStore.updateStatus(postId, 'published', {
+        await this.postStore.updateStatus(postId, "published", {
           publishedAt: new Date(),
           platformPostId: result.platformPostId,
         });
         incrementCounter(post.platform);
         console.log(`[Publisher] published ${postId} to ${post.platform}`);
       } else {
-        await this.handleFailure(post, result.error || 'Unknown error');
+        await this.handleFailure(post, result.error || "Unknown error");
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -140,7 +144,7 @@ export class Publisher {
       );
     } else {
       await this.queue.moveToDeadLetter(post.id, post.tenantId, reason, retryCount);
-      await this.postStore.updateStatus(post.id, 'failed', { errorMessage: reason });
+      await this.postStore.updateStatus(post.id, "failed", { errorMessage: reason });
       console.error(
         `[Publisher] post ${post.id} failed permanently after ${retryCount} attempts: ${reason}`
       );

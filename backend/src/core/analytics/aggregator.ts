@@ -2,14 +2,14 @@
  * Analytics aggregator — cross-platform metrics aggregation.
  */
 
-import { db } from '../../db/index.js';
-import { posts, postAnalytics } from '../../db/schema.js';
-import { eq, and, sql, gte, lte } from 'drizzle-orm';
-import { fetchInstagramInsights } from './instagram-analytics.js';
-import { fetchXAnalytics } from './x-analytics.js';
-import { fetchLinkedInAnalytics } from './linkedin-analytics.js';
-import type { PostAnalytics as IGPostAnalytics } from './instagram-analytics.js';
-import { decryptToken } from '../../lib/encryption.js';
+import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { db } from "../../db/index.js";
+import { postAnalytics, posts } from "../../db/schema.js";
+import { decryptToken } from "../../lib/encryption.js";
+import type { PostAnalytics as IGPostAnalytics } from "./instagram-analytics.js";
+import { fetchInstagramInsights } from "./instagram-analytics.js";
+import { fetchLinkedInAnalytics } from "./linkedin-analytics.js";
+import { fetchXAnalytics } from "./x-analytics.js";
 
 export type PostAnalyticsData = IGPostAnalytics & { postId: string };
 
@@ -84,22 +84,13 @@ export async function getOverviewMetrics(
       count: sql<number>`count(*)::int`,
     })
     .from(posts)
-    .where(
-      and(
-        eq(posts.tenantId, tenantId),
-        gte(posts.createdAt, from),
-        lte(posts.createdAt, to)
-      )
-    )
+    .where(and(eq(posts.tenantId, tenantId), gte(posts.createdAt, from), lte(posts.createdAt, to)))
     .groupBy(posts.status);
 
   const totalPosts = postCounts.reduce((sum, r) => sum + r.count, 0);
-  const publishedPosts =
-    postCounts.find((r) => r.status === 'published')?.count || 0;
-  const scheduledPosts =
-    postCounts.find((r) => r.status === 'scheduled')?.count || 0;
-  const draftPosts =
-    postCounts.find((r) => r.status === 'draft')?.count || 0;
+  const publishedPosts = postCounts.find((r) => r.status === "published")?.count || 0;
+  const scheduledPosts = postCounts.find((r) => r.status === "scheduled")?.count || 0;
+  const draftPosts = postCounts.find((r) => r.status === "draft")?.count || 0;
 
   // Aggregated metrics from analytics
   const metricsAgg = await db
@@ -111,8 +102,7 @@ export async function getOverviewMetrics(
       totalShares: sql<number>`coalesce(sum(${postAnalytics.shares}), 0)::int`,
       totalClicks: sql<number>`coalesce(sum(${postAnalytics.clicks}), 0)::int`,
       totalSaves: sql<number>`coalesce(sum(${postAnalytics.saves}), 0)::int`,
-      avgEngagement:
-        sql<number>`coalesce(avg(${postAnalytics.engagementRate}), 0)::float`,
+      avgEngagement: sql<number>`coalesce(avg(${postAnalytics.engagementRate}), 0)::float`,
     })
     .from(postAnalytics)
     .innerJoin(posts, eq(postAnalytics.postId, posts.id))
@@ -130,24 +120,18 @@ export async function getOverviewMetrics(
   const platformMetrics = await db
     .select({
       platform: postAnalytics.platform,
-      totalEngagement:
-        sql<number>`(sum(${postAnalytics.likes}) + sum(${postAnalytics.comments}) + sum(${postAnalytics.shares}))::int`,
+      totalEngagement: sql<number>`(sum(${postAnalytics.likes}) + sum(${postAnalytics.comments}) + sum(${postAnalytics.shares}))::int`,
     })
     .from(postAnalytics)
     .innerJoin(posts, eq(postAnalytics.postId, posts.id))
-    .where(
-      and(
-        eq(posts.tenantId, tenantId),
-        gte(postAnalytics.fetchedAt, from)
-      )
-    )
+    .where(and(eq(posts.tenantId, tenantId), gte(postAnalytics.fetchedAt, from)))
     .groupBy(postAnalytics.platform)
     .orderBy(
       sql`(sum(${postAnalytics.likes}) + sum(${postAnalytics.comments}) + sum(${postAnalytics.shares})) desc`
     )
     .limit(1);
 
-  const topPlatform = platformMetrics[0]?.platform || 'none';
+  const topPlatform = platformMetrics[0]?.platform || "none";
 
   // Best posting time (hour with highest avg engagement)
   const bestTime = await db
@@ -158,18 +142,13 @@ export async function getOverviewMetrics(
     .from(posts)
     .innerJoin(postAnalytics, eq(posts.id, postAnalytics.postId))
     .where(
-      and(
-        eq(posts.tenantId, tenantId),
-        eq(posts.status, 'published'),
-        gte(posts.publishedAt, from)
-      )
+      and(eq(posts.tenantId, tenantId), eq(posts.status, "published"), gte(posts.publishedAt, from))
     )
     .groupBy(sql`extract(hour from ${posts.publishedAt})`)
     .orderBy(sql`avg(${postAnalytics.engagementRate}) desc`)
     .limit(1);
 
-  const bestPostingTime =
-    bestTime[0] !== undefined ? `${bestTime[0].hour}:00 UTC` : 'N/A';
+  const bestPostingTime = bestTime[0] !== undefined ? `${bestTime[0].hour}:00 UTC` : "N/A";
 
   return {
     totalPosts,
@@ -224,7 +203,7 @@ export async function getPlatformBreakdown(
     .orderBy(sql`sum(${postAnalytics.impressions}) desc`);
 
   return results.map((r) => ({
-    platform: (r.platform ?? '') || 'unknown',
+    platform: (r.platform ?? "") || "unknown",
     posts: r.posts,
     impressions: r.impressions,
     reach: r.reach,
@@ -266,7 +245,7 @@ export async function getTopPosts(
     .where(
       and(
         eq(posts.tenantId, tenantId),
-        eq(posts.status, 'published'),
+        eq(posts.status, "published"),
         gte(posts.publishedAt, from),
         lte(posts.publishedAt, to)
       )
@@ -276,9 +255,9 @@ export async function getTopPosts(
 
   return results.map((r) => ({
     postId: r.postId,
-    platform: (r.platform ?? '') || 'unknown',
-    contentPreview: (r.contentText || '').slice(0, 100) + '...',
-    publishedAt: r.publishedAt instanceof Date ? r.publishedAt.toISOString() : '',
+    platform: (r.platform ?? "") || "unknown",
+    contentPreview: `${(r.contentText || "").slice(0, 100)}...`,
+    publishedAt: r.publishedAt instanceof Date ? r.publishedAt.toISOString() : "",
     impressions: r.impressions || 0,
     reach: r.reach || 0,
     engagementRate: r.engagementRate || 0,
@@ -312,7 +291,7 @@ export async function getBestTimes(
     .where(
       and(
         eq(posts.tenantId, tenantId),
-        eq(posts.status, 'published'),
+        eq(posts.status, "published"),
         gte(posts.publishedAt, from),
         lte(posts.publishedAt, to)
       )
@@ -339,7 +318,7 @@ export async function getBestTimes(
  */
 export async function collectAnalyticsForAccount(
   account: SocialAccountStub,
-  post: PostStub,
+  post: PostStub
 ): Promise<PostAnalyticsData | null> {
   if (!post.platformPostId || !account.accessTokenEncrypted) {
     return null;
@@ -350,29 +329,20 @@ export async function collectAnalyticsForAccount(
 
   try {
     switch (platform) {
-      case 'instagram': {
-        const result = await fetchInstagramInsights(
-          post.platformPostId,
-          accessToken,
-        );
+      case "instagram": {
+        const result = await fetchInstagramInsights(post.platformPostId, accessToken);
         if (!result) return null;
         return { ...result, postId: post.id };
       }
 
-      case 'x': {
-        const result = await fetchXAnalytics(
-          post.platformPostId,
-          accessToken,
-        );
+      case "x": {
+        const result = await fetchXAnalytics(post.platformPostId, accessToken);
         if (!result) return null;
         return { ...result, postId: post.id };
       }
 
-      case 'linkedin': {
-        const result = await fetchLinkedInAnalytics(
-          post.platformPostId,
-          accessToken,
-        );
+      case "linkedin": {
+        const result = await fetchLinkedInAnalytics(post.platformPostId, accessToken);
         if (!result) return null;
         return { ...result, postId: post.id };
       }
@@ -381,7 +351,7 @@ export async function collectAnalyticsForAccount(
         // Generic fallback — no platform-specific client exists
         return null;
     }
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }

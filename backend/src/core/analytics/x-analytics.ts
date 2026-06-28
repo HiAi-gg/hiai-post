@@ -2,7 +2,7 @@
  * X (Twitter) Analytics client — fetch tweet engagement metrics via API v2.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface PostAnalytics {
   postId: string;
@@ -18,9 +18,17 @@ export interface PostAnalytics {
   fetchedAt: Date;
 }
 
-function computeEngagementRate(metrics: { likes: number; replies: number; retweets: number; bookmarks: number; impressions: number }): number {
+function computeEngagementRate(metrics: {
+  likes: number;
+  replies: number;
+  retweets: number;
+  bookmarks: number;
+  impressions: number;
+}): number {
   const totalEngagement = metrics.likes + metrics.replies + metrics.retweets + metrics.bookmarks;
-  return metrics.impressions > 0 ? Math.round((totalEngagement / metrics.impressions) * 10000) / 100 : 0;
+  return metrics.impressions > 0
+    ? Math.round((totalEngagement / metrics.impressions) * 10000) / 100
+    : 0;
 }
 
 /**
@@ -28,7 +36,7 @@ function computeEngagementRate(metrics: { likes: number; replies: number; retwee
  */
 export async function fetchXAnalytics(
   tweetId: string,
-  bearerToken: string,
+  bearerToken: string
 ): Promise<PostAnalytics | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -41,12 +49,12 @@ export async function fetchXAnalytics(
     });
 
     if (response.status === 429) {
-      logger.warn({ tweetId }, 'X API rate limited (429)');
+      logger.warn({ tweetId }, "X API rate limited (429)");
       return null;
     }
 
     if (!response.ok) {
-      logger.error({ status: response.status, tweetId }, 'X analytics fetch failed');
+      logger.error({ status: response.status, tweetId }, "X analytics fetch failed");
       return null;
     }
 
@@ -65,7 +73,7 @@ export async function fetchXAnalytics(
 
     const metrics = json.data?.public_metrics;
     if (!metrics) {
-      logger.warn({ tweetId }, 'X analytics returned no metrics data');
+      logger.warn({ tweetId }, "X analytics returned no metrics data");
       return null;
     }
 
@@ -74,11 +82,17 @@ export async function fetchXAnalytics(
     const replies = metrics.reply_count ?? 0;
     const retweets = metrics.retweet_count ?? 0;
     const bookmarks = metrics.bookmark_count ?? 0;
-    const engagementRate = computeEngagementRate({ likes, replies, retweets, bookmarks, impressions });
+    const engagementRate = computeEngagementRate({
+      likes,
+      replies,
+      retweets,
+      bookmarks,
+      impressions,
+    });
 
     return {
       postId: tweetId,
-      platform: 'x',
+      platform: "x",
       impressions,
       reach: impressions,
       engagementRate,
@@ -90,7 +104,7 @@ export async function fetchXAnalytics(
       fetchedAt: new Date(),
     };
   } catch (error) {
-    logger.error({ error, tweetId }, 'X analytics fetch error');
+    logger.error({ error, tweetId }, "X analytics fetch error");
     return null;
   } finally {
     clearTimeout(timeout);

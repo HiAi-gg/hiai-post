@@ -1,11 +1,11 @@
-import { createHash } from 'node:crypto';
+import { createHash } from "node:crypto";
 
 /**
  * Generate an idempotency key from social account ID and content.
  * Prevents duplicate posts from being published.
  */
 export function generateIdempotencyKey(socialAccountId: string, content: string): string {
-  const contentHash = createHash('sha256').update(content).digest('hex').slice(0, 16);
+  const contentHash = createHash("sha256").update(content).digest("hex").slice(0, 16);
   return `${socialAccountId}:${contentHash}`;
 }
 
@@ -25,5 +25,5 @@ export function verifyIdempotencyKey(
  * Generate a short hash for deduplication checks.
  */
 export function contentHash(content: string): string {
-  return createHash('sha256').update(content).digest('hex').slice(0, 32);
+  return createHash("sha256").update(content).digest("hex").slice(0, 32);
 }

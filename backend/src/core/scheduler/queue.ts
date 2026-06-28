@@ -1,7 +1,7 @@
-import type { Redis } from 'ioredis';
+import type { Redis } from "ioredis";
 
-const QUEUE_PREFIX = 'publish_queue:';
-const DEAD_LETTER_PREFIX = 'dead_letter:';
+const QUEUE_PREFIX = "publish_queue:";
+const DEAD_LETTER_PREFIX = "dead_letter:";
 
 export interface QueueItem {
   postId: string;
@@ -39,13 +39,13 @@ export class PublishQueue {
   async dequeue(tenantId: string, count: number = 10): Promise<QueueItem[]> {
     const now = Date.now();
     const key = this.queueKey(tenantId);
-    const members = await this.redis.zrangebyscore(key, 0, now, 'LIMIT', 0, count);
+    const members = await this.redis.zrangebyscore(key, 0, now, "LIMIT", 0, count);
 
     if (members.length === 0) return [];
 
     const items: QueueItem[] = [];
     for (const member of members) {
-      const [tid, pid] = member.split(':');
+      const [tid, pid] = member.split(":");
       const score = await this.redis.zscore(key, member);
       if (score) {
         items.push({ postId: pid, tenantId: tid, scheduledAt: Number(score) });
@@ -66,11 +66,11 @@ export class PublishQueue {
 
   async getScheduled(tenantId: string): Promise<QueueItem[]> {
     const key = this.queueKey(tenantId);
-    const members = await this.redis.zrange(key, 0, -1, 'WITHSCORES');
+    const members = await this.redis.zrange(key, 0, -1, "WITHSCORES");
     const items: QueueItem[] = [];
 
     for (let i = 0; i < members.length; i += 2) {
-      const [tid, pid] = members[i].split(':');
+      const [tid, pid] = members[i].split(":");
       items.push({
         postId: pid,
         tenantId: tid,
@@ -96,11 +96,7 @@ export class PublishQueue {
       failedAt: Date.now(),
       attempts,
     };
-    await this.redis.zadd(
-      this.deadLetterKey(tenantId),
-      Date.now(),
-      JSON.stringify(item)
-    );
+    await this.redis.zadd(this.deadLetterKey(tenantId), Date.now(), JSON.stringify(item));
   }
 
   async listDeadLetters(tenantId: string): Promise<DeadLetterItem[]> {

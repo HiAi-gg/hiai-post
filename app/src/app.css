@@ -27,7 +27,9 @@
   --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   font-family: var(--font-sans);
@@ -39,23 +41,23 @@ body {
 /* Platform brand colors (NOT design tokens — platform brand identity).
    Sourced from src/lib/platform-brand-colors.ts. */
 :root {
-  --platform-instagram: #E1306C;
+  --platform-instagram: #e1306c;
   --platform-tiktok: #000000;
-  --platform-x: #1DA1F2;
-  --platform-x-post: #1DA1F2;
+  --platform-x: #1da1f2;
+  --platform-x-post: #1da1f2;
   --platform-threads: #000000;
-  --platform-linkedin: #0A66C2;
-  --platform-facebook: #1877F2;
-  --platform-telegram: #2AABEE;
-  --platform-pinterest: #BD081C;
-  --platform-youtube-shorts: #FF0000;
-  --platform-youtube-long: #FF0000;
+  --platform-linkedin: #0a66c2;
+  --platform-facebook: #1877f2;
+  --platform-telegram: #2aabee;
+  --platform-pinterest: #bd081c;
+  --platform-youtube-shorts: #ff0000;
+  --platform-youtube-long: #ff0000;
   --platform-fallback: #888888;
 
   /* Logo palette variants used by cards/avatars */
-  --platform-logo-instagram: #E4405F;
-  --platform-logo-telegram: #26A5E4;
-  --platform-logo-pinterest: #E60023;
+  --platform-logo-instagram: #e4405f;
+  --platform-logo-telegram: #26a5e4;
+  --platform-logo-pinterest: #e60023;
 
   /* Chart palette — derived from the brand `ring` token so charts follow
      the active theme. Override per-chart via the `color` prop. */
@@ -67,7 +69,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

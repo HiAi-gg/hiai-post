@@ -2,7 +2,7 @@
  * Instagram Analytics client — fetch post engagement metrics via Graph API v19.0.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface PostAnalytics {
   postId: string;
@@ -20,14 +20,22 @@ export interface PostAnalytics {
 
 function getMetric(
   data: Array<{ name: string; values: Array<{ value: number }> }>,
-  name: string,
+  name: string
 ): number {
   return data.find((m) => m.name === name)?.values[0]?.value ?? 0;
 }
 
-function computeEngagementRate(metrics: { likes: number; comments: number; shares: number; saves: number; impressions: number }): number {
+function computeEngagementRate(metrics: {
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  impressions: number;
+}): number {
   const totalEngagement = metrics.likes + metrics.comments + metrics.shares + metrics.saves;
-  return metrics.impressions > 0 ? Math.round((totalEngagement / metrics.impressions) * 10000) / 100 : 0;
+  return metrics.impressions > 0
+    ? Math.round((totalEngagement / metrics.impressions) * 10000) / 100
+    : 0;
 }
 
 /**
@@ -36,10 +44,10 @@ function computeEngagementRate(metrics: { likes: number; comments: number; share
 export async function fetchInstagramInsights(
   mediaId: string,
   accessToken: string,
-  metrics?: string[],
+  metrics?: string[]
 ): Promise<PostAnalytics | null> {
-  const defaultMetrics = 'impressions,reach,engagement,likes,comments,shares,saved';
-  const metricParam = metrics ? metrics.join(',') : defaultMetrics;
+  const defaultMetrics = "impressions,reach,engagement,likes,comments,shares,saved";
+  const metricParam = metrics ? metrics.join(",") : defaultMetrics;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -49,12 +57,12 @@ export async function fetchInstagramInsights(
     const response = await fetch(url, { signal: controller.signal });
 
     if (response.status === 429) {
-      logger.warn({ mediaId }, 'Instagram API rate limited (429)');
+      logger.warn({ mediaId }, "Instagram API rate limited (429)");
       return null;
     }
 
     if (!response.ok) {
-      logger.error({ status: response.status, mediaId }, 'Instagram insights fetch failed');
+      logger.error({ status: response.status, mediaId }, "Instagram insights fetch failed");
       return null;
     }
 
@@ -63,18 +71,18 @@ export async function fetchInstagramInsights(
     };
 
     const data = json.data ?? [];
-    const impressions = getMetric(data, 'impressions');
-    const reach = getMetric(data, 'reach');
-    const likes = getMetric(data, 'likes');
-    const comments = getMetric(data, 'comments');
-    const shares = getMetric(data, 'shares');
-    const saves = getMetric(data, 'saved');
+    const impressions = getMetric(data, "impressions");
+    const reach = getMetric(data, "reach");
+    const likes = getMetric(data, "likes");
+    const comments = getMetric(data, "comments");
+    const shares = getMetric(data, "shares");
+    const saves = getMetric(data, "saved");
 
     const engagementRate = computeEngagementRate({ likes, comments, shares, saves, impressions });
 
     return {
       postId: mediaId,
-      platform: 'instagram',
+      platform: "instagram",
       impressions,
       reach,
       engagementRate,
@@ -86,7 +94,7 @@ export async function fetchInstagramInsights(
       fetchedAt: new Date(),
     };
   } catch (error) {
-    logger.error({ error, mediaId }, 'Instagram insights fetch error');
+    logger.error({ error, mediaId }, "Instagram insights fetch error");
     return null;
   } finally {
     clearTimeout(timeout);

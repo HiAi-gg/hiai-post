@@ -1,48 +1,62 @@
 <script lang="ts">
-  interface TemplateData {
-    name: string;
-    platform: string;
-    contentText: string;
-    aiPrompt: string;
-    variables?: Array<{ name: string; type: string; defaultValue: string }>;
+interface TemplateData {
+  name: string;
+  platform: string;
+  contentText: string;
+  aiPrompt: string;
+  variables?: Array<{ name: string; type: string; defaultValue: string }>;
+}
+
+let {
+  template = $bindable({
+    name: "",
+    platform: "instagram",
+    contentText: "",
+    aiPrompt: "",
+    variables: [],
+  }),
+} = $props();
+
+const _PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram", "multi"];
+const _platformIcons: Record<string, string> = {
+  instagram: "📸",
+  tiktok: "🎵",
+  x: "𝕏",
+  linkedin: "💼",
+  facebook: "📘",
+  telegram: "✈️",
+  multi: "🌐",
+};
+
+let _showVariables = $state(false);
+let newVarName = $state("");
+let newVarType = $state("text");
+
+const _detectedVariables = $derived.by(() => {
+  const matches = template.contentText.match(/\{\{(\w+)\}\}/g) || [];
+  return [...new Set(matches.map((m: string) => m.replace(/[{}]/g, "")))];
+});
+
+const _previewContent = $derived.by(() => {
+  let result = template.contentText;
+  for (const v of template.variables || []) {
+    result = result.replaceAll(`{{${v.name}}}`, v.defaultValue || `[${v.name}]`);
   }
+  return result;
+});
 
-  let { template = $bindable({ name: '', platform: 'instagram', contentText: '', aiPrompt: '', variables: [] }) } = $props();
-
-  const PLATFORMS = ['instagram', 'tiktok', 'x', 'linkedin', 'facebook', 'telegram', 'multi'];
-  const platformIcons: Record<string, string> = {
-    instagram: '📸', tiktok: '🎵', x: '𝕏', linkedin: '💼', facebook: '📘', telegram: '✈️', multi: '🌐',
-  };
-
-  let showVariables = $state(false);
-  let newVarName = $state('');
-  let newVarType = $state('text');
-
-  const detectedVariables = $derived.by(() => {
-    const matches = template.contentText.match(/\{\{(\w+)\}\}/g) || [];
-    return [...new Set(matches.map((m: string) => m.replace(/[{}]/g, '')))];
-  });
-
-  const previewContent = $derived.by(() => {
-    let result = template.contentText;
-    for (const v of (template.variables || [])) {
-      result = result.replaceAll(`{{${v.name}}}`, v.defaultValue || `[${v.name}]`);
-    }
-    return result;
-  });
-
-  function addVariable() {
-    if (!newVarName) return;
-    const vars = template.variables || [];
-    if (!vars.find((v: any) => v.name === newVarName)) {
-      template.variables = [...vars, { name: newVarName, type: newVarType, defaultValue: '' }];
-    }
-    newVarName = '';
+function _addVariable() {
+  if (!newVarName) return;
+  const vars = template.variables || [];
+  if (!vars.find((v: any) => v.name === newVarName)) {
+    template.variables = [...vars, { name: newVarName, type: newVarType, defaultValue: "" }];
   }
+  newVarName = "";
+}
 
-  function removeVariable(name: string) {
-    template.variables = (template.variables || []).filter((v: any) => v.name !== name);
-  }
+function _removeVariable(name: string) {
+  template.variables = (template.variables || []).filter((v: any) => v.name !== name);
+}
 </script>
 
 <div class="space-y-4">

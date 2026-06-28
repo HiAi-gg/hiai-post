@@ -9,28 +9,28 @@
  * Requires env: OAUTH_STATE_SECRET (>= 32 bytes random)
  * Falls back to BETTER_AUTH_SECRET if OAUTH_STATE_SECRET is not set.
  */
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { redis } from './redis.js';
-import { config } from './config.js';
-import { logger } from './logger.js';
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { config } from "./config.js";
+import { logger } from "./logger.js";
+import { redis } from "./redis.js";
 
-const log = logger.child({ module: 'oauth-state' });
+const log = logger.child({ module: "oauth-state" });
 
 const STATE_TTL_SECONDS = 600; // 10 minutes
-const STATE_KEY_PREFIX = 'oauth:state:';
+const STATE_KEY_PREFIX = "oauth:state:";
 
 function getSecret(): string {
   const secret = config.OAUTH_STATE_SECRET || config.BETTER_AUTH_SECRET;
   if (!secret || secret.length < 32) {
     log.warn(
-      'OAUTH_STATE_SECRET is missing or too short (< 32 chars). Using BETTER_AUTH_SECRET fallback. Set OAUTH_STATE_SECRET in production.'
+      "OAUTH_STATE_SECRET is missing or too short (< 32 chars). Using BETTER_AUTH_SECRET fallback. Set OAUTH_STATE_SECRET in production."
     );
   }
-  return secret || 'dev-only-insecure-secret-do-not-use-in-prod-32+chars';
+  return secret || "dev-only-insecure-secret-do-not-use-in-prod-32+chars";
 }
 
 function sign(payload: string): string {
-  return createHmac('sha256', getSecret()).update(payload).digest('base64url');
+  return createHmac("sha256", getSecret()).update(payload).digest("base64url");
 }
 
 function verifySig(payload: string, sig: string): boolean {
@@ -44,11 +44,11 @@ function verifySig(payload: string, sig: string): boolean {
 }
 
 function b64urlEncode(s: string): string {
-  return Buffer.from(s, 'utf8').toString('base64url');
+  return Buffer.from(s, "utf8").toString("base64url");
 }
 
 function b64urlDecode(s: string): string {
-  return Buffer.from(s, 'base64url').toString('utf8');
+  return Buffer.from(s, "base64url").toString("utf8");
 }
 
 export interface OAuthState {
@@ -75,8 +75,11 @@ export interface GenerateResult {
  * The `csrf` token is also returned so callers can verify it themselves
  * if they prefer; otherwise validateState() handles it.
  */
-export async function generateState(opts: { platform: string; tenantId?: string }): Promise<GenerateResult> {
-  const csrf = randomBytes(32).toString('base64url');
+export async function generateState(opts: {
+  platform: string;
+  tenantId?: string;
+}): Promise<GenerateResult> {
+  const csrf = randomBytes(32).toString("base64url");
   const payload: OAuthState = {
     csrf,
     ts: Date.now(),
@@ -91,8 +94,8 @@ export async function generateState(opts: { platform: string; tenantId?: string 
   try {
     await redis.setex(`${STATE_KEY_PREFIX}${csrf}`, STATE_TTL_SECONDS, state);
   } catch (err) {
-    log.error({ err }, 'Failed to store OAuth state in Redis');
-    throw new Error('Failed to generate OAuth state');
+    log.error({ err }, "Failed to store OAuth state in Redis");
+    throw new Error("Failed to generate OAuth state");
   }
 
   return { state, csrf };
@@ -107,9 +110,9 @@ export async function generateState(opts: { platform: string; tenantId?: string 
  * - Returns null on any failure
  */
 export async function validateState(state: string | null | undefined): Promise<OAuthState | null> {
-  if (!state || typeof state !== 'string') return null;
+  if (!state || typeof state !== "string") return null;
 
-  const parts = state.split('.');
+  const parts = state.split(".");
   if (parts.length !== 2) return null;
 
   const [encoded, sig] = parts;
@@ -117,7 +120,7 @@ export async function validateState(state: string | null | undefined): Promise<O
 
   // 1. Verify HMAC
   if (!verifySig(encoded, sig)) {
-    log.warn('OAuth state HMAC verification failed');
+    log.warn("OAuth state HMAC verification failed");
     return null;
   }
 
@@ -139,17 +142,20 @@ export async function validateState(state: string | null | undefined): Promise<O
   try {
     stored = await redis.getdel(`${STATE_KEY_PREFIX}${payload.csrf}`);
   } catch (err) {
-    log.error({ err }, 'Failed to read OAuth state from Redis');
+    log.error({ err }, "Failed to read OAuth state from Redis");
     return null;
   }
 
   if (!stored) {
-    log.warn({ platform: payload.platform }, 'OAuth state not found in Redis (expired or already used)');
+    log.warn(
+      { platform: payload.platform },
+      "OAuth state not found in Redis (expired or already used)"
+    );
     return null;
   }
 
   if (stored !== state) {
-    log.warn({ platform: payload.platform }, 'OAuth state mismatch (possible tampering)');
+    log.warn({ platform: payload.platform }, "OAuth state mismatch (possible tampering)");
     return null;
   }
 

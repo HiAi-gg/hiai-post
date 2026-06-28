@@ -1,94 +1,124 @@
 <script lang="ts">
-  import PlatformPreview from './PlatformPreview.svelte';
-  import TipexEditor from './editor/TipexEditor.svelte';
-  import { platformBrandColors } from '../platform-brand-colors';
+import { platformBrandColors } from "../platform-brand-colors";
 
-  interface Props {
-    content?: string;
-    platforms?: string[];
-    mediaUrls?: string[];
-    scheduledAt?: string;
-    onGenerate?: (topic: string) => Promise<string>;
-    onPublish?: () => void;
-    onSchedule?: (date: string) => void;
+interface Props {
+  content?: string;
+  platforms?: string[];
+  mediaUrls?: string[];
+  scheduledAt?: string;
+  onGenerate?: (topic: string) => Promise<string>;
+  onPublish?: () => void;
+  onSchedule?: (date: string) => void;
+}
+
+let {
+  content = $bindable(""),
+  platforms = $bindable(["instagram"]),
+  mediaUrls = $bindable([]),
+  scheduledAt = $bindable(""),
+  onGenerate,
+  onPublish,
+  onSchedule,
+}: Props = $props();
+
+let topic = $state("");
+let _generating = $state(false);
+let _showSchedule = $state(false);
+let scheduleDate = $state("");
+let scheduleTime = $state("");
+let _dragActive = $state(false);
+let _showPreview = $state(false);
+let _selectedPreviewPlatform = $state("instagram");
+
+const _ALL_PLATFORMS = [
+  "instagram",
+  "tiktok",
+  "x",
+  "x-post",
+  "threads",
+  "linkedin",
+  "facebook",
+  "telegram",
+  "pinterest",
+  "youtube-shorts",
+  "youtube-long",
+];
+const _platformIcons: Record<string, string> = {
+  instagram: "📸",
+  tiktok: "🎵",
+  x: "🧵",
+  "x-post": "𝕏",
+  threads: "🧵",
+  linkedin: "💼",
+  facebook: "📘",
+  telegram: "✈️",
+  pinterest: "📌",
+  "youtube-shorts": "🎬",
+  "youtube-long": "▶️",
+};
+const _platformColors: Record<string, string> = platformBrandColors;
+
+const charLimits: Record<string, number> = {
+  instagram: 2200,
+  tiktok: 2200,
+  x: 275,
+  "x-post": 280,
+  threads: 500,
+  linkedin: 3000,
+  facebook: 63206,
+  telegram: 4096,
+  pinterest: 500,
+  "youtube-shorts": 3000,
+  "youtube-long": 50000,
+};
+
+const activeLimit = $derived(Math.min(...platforms.map((p) => charLimits[p] ?? 2200)));
+const remaining = $derived(activeLimit - content.length);
+const _overLimit = $derived(remaining < 0);
+
+function _togglePlatform(p: string) {
+  if (platforms.includes(p)) {
+    if (platforms.length > 1) platforms = platforms.filter((x) => x !== p);
+  } else {
+    platforms = [...platforms, p];
   }
+}
 
-  let {
-    content = $bindable(''),
-    platforms = $bindable(['instagram']),
-    mediaUrls = $bindable([]),
-    scheduledAt = $bindable(''),
-    onGenerate,
-    onPublish,
-    onSchedule,
-  }: Props = $props();
-
-  let topic = $state('');
-  let generating = $state(false);
-  let showSchedule = $state(false);
-  let scheduleDate = $state('');
-  let scheduleTime = $state('');
-  let dragActive = $state(false);
-  let showPreview = $state(false);
-  let selectedPreviewPlatform = $state('instagram');
-
-  const ALL_PLATFORMS = ['instagram', 'tiktok', 'x', 'x-post', 'threads', 'linkedin', 'facebook', 'telegram', 'pinterest', 'youtube-shorts', 'youtube-long'];
-  const platformIcons: Record<string, string> = {
-    instagram: '📸', tiktok: '🎵', x: '🧵', 'x-post': '𝕏', threads: '🧵', linkedin: '💼', facebook: '📘', telegram: '✈️', pinterest: '📌', 'youtube-shorts': '🎬', 'youtube-long': '▶️',
-  };
-  const platformColors: Record<string, string> = platformBrandColors;
-
-  const charLimits: Record<string, number> = {
-    instagram: 2200, tiktok: 2200, x: 275, 'x-post': 280, threads: 500, linkedin: 3000, facebook: 63206, telegram: 4096, pinterest: 500, 'youtube-shorts': 3000, 'youtube-long': 50000,
-  };
-
-  const activeLimit = $derived(
-    Math.min(...platforms.map(p => charLimits[p] ?? 2200))
-  );
-  const remaining = $derived(activeLimit - content.length);
-  const overLimit = $derived(remaining < 0);
-
-  function togglePlatform(p: string) {
-    if (platforms.includes(p)) {
-      if (platforms.length > 1) platforms = platforms.filter(x => x !== p);
-    } else {
-      platforms = [...platforms, p];
-    }
+async function _handleGenerate() {
+  if (!topic || !onGenerate) return;
+  _generating = true;
+  try {
+    content = await onGenerate(topic);
+  } finally {
+    _generating = false;
   }
+}
 
-  async function handleGenerate() {
-    if (!topic || !onGenerate) return;
-    generating = true;
-    try {
-      content = await onGenerate(topic);
-    } finally { generating = false; }
+function _handleSchedule() {
+  if (scheduleDate && scheduleTime && onSchedule) {
+    const iso = `${scheduleDate}T${scheduleTime}:00Z`;
+    onSchedule(iso);
+    _showSchedule = false;
   }
+}
 
-  function handleSchedule() {
-    if (scheduleDate && scheduleTime && onSchedule) {
-      const iso = `${scheduleDate}T${scheduleTime}:00Z`;
-      onSchedule(iso);
-      showSchedule = false;
-    }
-  }
-
-  function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    dragActive = false;
-    const files = e.dataTransfer?.files;
-    if (files) {
-      for (const file of files) {
-        if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
-          const url = URL.createObjectURL(file);
-          mediaUrls = [...mediaUrls, url];
-        }
+function _handleDrop(e: DragEvent) {
+  e.preventDefault();
+  _dragActive = false;
+  const files = e.dataTransfer?.files;
+  if (files) {
+    for (const file of files) {
+      if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+        const url = URL.createObjectURL(file);
+        mediaUrls = [...mediaUrls, url];
       }
     }
   }
+}
 
-  function removeMedia(index: number) {
-    mediaUrls = mediaUrls.filter((_: string, i: number) => i !== index);
-  }
+function _removeMedia(index: number) {
+  mediaUrls = mediaUrls.filter((_: string, i: number) => i !== index);
+}
 </script>
 
 <div class="space-y-4">

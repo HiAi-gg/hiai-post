@@ -1,7 +1,7 @@
-import { db } from '../../lib/db.js';
-import { redis } from '../../lib/redis.js';
-import { posts, postAnalytics } from '../../db/schema.js';
-import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { postAnalytics, posts } from "../../db/schema.js";
+import { db } from "../../lib/db.js";
+import { redis } from "../../lib/redis.js";
 
 export interface PlatformMetrics {
   platform: string;
@@ -21,7 +21,7 @@ const CACHE_TTL_SECONDS = 5 * 60;
 export async function getCrossPlatformMetrics(
   tenantId: string,
   startDate?: Date,
-  endDate?: Date,
+  endDate?: Date
 ): Promise<PlatformMetrics[]> {
   const now = new Date();
   const from = startDate ?? new Date(now.getTime() - 30 * 86400000);
@@ -44,7 +44,7 @@ async function getCrossPlatformMetricsUncached(
   tenantId: string,
   from: Date,
   to: Date,
-  cacheKey: string,
+  cacheKey: string
 ): Promise<PlatformMetrics[]> {
   const postCounts = await db
     .select({
@@ -53,13 +53,7 @@ async function getCrossPlatformMetricsUncached(
       published: sql<number>`count(*) filter (where ${posts.status} = 'published')::int`,
     })
     .from(posts)
-    .where(
-      and(
-        eq(posts.tenantId, tenantId),
-        gte(posts.createdAt, from),
-        lte(posts.createdAt, to),
-      ),
-    )
+    .where(and(eq(posts.tenantId, tenantId), gte(posts.createdAt, from), lte(posts.createdAt, to)))
     .groupBy(posts.platform);
 
   const analyticsData = await db
@@ -73,13 +67,7 @@ async function getCrossPlatformMetricsUncached(
     })
     .from(postAnalytics)
     .innerJoin(posts, eq(postAnalytics.postId, posts.id))
-    .where(
-      and(
-        eq(posts.tenantId, tenantId),
-        gte(posts.createdAt, from),
-        lte(posts.createdAt, to),
-      ),
-    )
+    .where(and(eq(posts.tenantId, tenantId), gte(posts.createdAt, from), lte(posts.createdAt, to)))
     .groupBy(postAnalytics.platform);
 
   const topPostRows = await db.execute<{
@@ -101,7 +89,10 @@ async function getCrossPlatformMetricsUncached(
     ORDER BY pa.platform, pa.engagement_rate DESC
   `);
 
-  const topPostByPlatform = new Map<string, { id: string; content: string | null; likes: number }>();
+  const topPostByPlatform = new Map<
+    string,
+    { id: string; content: string | null; likes: number }
+  >();
   for (const tp of topPostRows) {
     if (tp.platform && !topPostByPlatform.has(tp.platform)) {
       topPostByPlatform.set(tp.platform, { id: tp.id, content: tp.content, likes: tp.likes });
@@ -143,7 +134,7 @@ async function getCrossPlatformMetricsUncached(
 
   const result = [...platformMap.values()].sort((a, b) => b.totalImpressions - a.totalImpressions);
 
-  await redis.set(cacheKey, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+  await redis.set(cacheKey, JSON.stringify(result), "EX", CACHE_TTL_SECONDS);
 
   return result;
 }

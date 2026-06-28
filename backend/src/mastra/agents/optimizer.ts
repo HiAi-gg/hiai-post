@@ -1,8 +1,8 @@
-import { Agent } from '@mastra/core/agent';
+import { Agent } from "@mastra/core/agent";
 
 export const optimizerAgent = new Agent({
-  id: 'optimizer',
-  name: 'optimizer',
+  id: "optimizer",
+  name: "optimizer",
   instructions: `You are a social media post optimizer. You improve posts for maximum engagement.
 Rules:
 - Improve hooks (first line must grab attention)
@@ -14,7 +14,7 @@ Rules:
 - Keep within platform character limits
 - Return valid JSON when requested`,
   model: {
-    provider: 'OPEN_ROUTER',
-    name: 'openai/gpt-4o-mini',
+    provider: "OPEN_ROUTER",
+    name: "openai/gpt-4o-mini",
   } as any,
 });

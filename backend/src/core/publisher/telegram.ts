@@ -2,15 +2,15 @@
  * Telegram publisher — send messages and media via Telegram Bot API.
  */
 
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
 export interface TelegramPublishOptions {
   botToken: string;
   chatId: string;
   content: string;
   mediaUrl?: string;
-  mediaType?: 'photo' | 'video' | 'animation' | 'document';
-  parseMode?: 'Markdown' | 'MarkdownV2' | 'HTML';
+  mediaType?: "photo" | "video" | "animation" | "document";
+  parseMode?: "Markdown" | "MarkdownV2" | "HTML";
   replyMarkup?: Record<string, unknown>;
 }
 
@@ -43,15 +43,12 @@ async function sendTextMessage(
     body.reply_markup = replyMarkup;
   }
 
-  const response = await fetch(
-    `https://api.telegram.org/bot${botToken}/sendMessage`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
-    }
-  );
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
 
   if (!response.ok) {
     const error = await response.text();
@@ -60,7 +57,7 @@ async function sendTextMessage(
 
   const data = (await response.json()) as { result?: { message_id?: number } };
   if (!data.result?.message_id) {
-    throw new Error('Message ID not returned');
+    throw new Error("Message ID not returned");
   }
 
   return data.result.message_id;
@@ -78,18 +75,18 @@ async function sendMedia(
   parseMode?: string
 ): Promise<number> {
   const methodMap: Record<string, string> = {
-    photo: 'sendPhoto',
-    video: 'sendVideo',
-    animation: 'sendAnimation',
-    document: 'sendDocument',
+    photo: "sendPhoto",
+    video: "sendVideo",
+    animation: "sendAnimation",
+    document: "sendDocument",
   };
 
-  const method = methodMap[mediaType] || 'sendPhoto';
+  const method = methodMap[mediaType] || "sendPhoto";
   const paramMap: Record<string, string> = {
-    photo: 'photo',
-    video: 'video',
-    animation: 'animation',
-    document: 'document',
+    photo: "photo",
+    video: "video",
+    animation: "animation",
+    document: "document",
   };
 
   const body: Record<string, unknown> = {
@@ -105,15 +102,12 @@ async function sendMedia(
     body.parse_mode = parseMode;
   }
 
-  const response = await fetch(
-    `https://api.telegram.org/bot${botToken}/${method}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
-    }
-  );
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000),
+  });
 
   if (!response.ok) {
     const error = await response.text();
@@ -122,7 +116,7 @@ async function sendMedia(
 
   const data = (await response.json()) as { result?: { message_id?: number } };
   if (!data.result?.message_id) {
-    throw new Error('Message ID not returned');
+    throw new Error("Message ID not returned");
   }
 
   return data.result.message_id;
@@ -135,24 +129,16 @@ export async function publishToTelegram(
   options: TelegramPublishOptions
 ): Promise<TelegramPublishResult> {
   try {
-    const {
-      botToken,
-      chatId,
-      content,
-      mediaUrl,
-      mediaType,
-      parseMode,
-      replyMarkup,
-    } = options;
+    const { botToken, chatId, content, mediaUrl, mediaType, parseMode, replyMarkup } = options;
 
     if (mediaUrl) {
       const messageId = await sendMedia(
         botToken,
         chatId,
         mediaUrl,
-        mediaType || 'photo',
+        mediaType || "photo",
         content,
-        parseMode || 'Markdown'
+        parseMode || "Markdown"
       );
       return { success: true, messageId };
     }
@@ -161,16 +147,16 @@ export async function publishToTelegram(
       botToken,
       chatId,
       content,
-      parseMode || 'Markdown',
+      parseMode || "Markdown",
       replyMarkup
     );
 
     return { success: true, messageId };
   } catch (error) {
-    logger.error({ error }, 'Telegram publish failed');
+    logger.error({ error }, "Telegram publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

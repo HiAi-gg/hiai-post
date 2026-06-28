@@ -1,21 +1,21 @@
-import { Elysia } from 'elysia';
-import { db } from '../../lib/db.js';
-import { contentPlans } from '../../db/schema.js';
-import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
-import { tenantMiddleware } from '../middleware/tenant.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { createRateLimiter } from '../middleware/rateLimiter.js';
-import { createContentPlanSchema, paginationSchema } from '../validation/schemas.js';
-import { logger } from '../../lib/logger.js';
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { Elysia } from "elysia";
+import { contentPlans } from "../../db/schema.js";
+import { db } from "../../lib/db.js";
+import { logger } from "../../lib/logger.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { tenantMiddleware } from "../middleware/tenant.js";
+import { createContentPlanSchema, paginationSchema } from "../validation/schemas.js";
 
-const log = logger.child({ module: 'content-plans-route' });
+const _log = logger.child({ module: "content-plans-route" });
 
-export const contentPlansRoutes = new Elysia({ prefix: '/api/v1/content-plans' })
-  .use(createRateLimiter('authenticated') as any)
+export const contentPlansRoutes = new Elysia({ prefix: "/api/v1/content-plans" })
+  .use(createRateLimiter("authenticated") as any)
   .use(authMiddleware)
   .use(tenantMiddleware)
   // List content plans with optional date range
-  .get('/', async ({ tenantId, query }: any) => {
+  .get("/", async ({ tenantId, query }: any) => {
     const { page, limit } = paginationSchema.parse(query);
     const from = query.from as string | undefined;
     const to = query.to as string | undefined;
@@ -45,7 +45,7 @@ export const contentPlansRoutes = new Elysia({ prefix: '/api/v1/content-plans' }
     };
   })
   // Get single plan
-  .get('/:id', async ({ params, tenantId, set }: any) => {
+  .get("/:id", async ({ params, tenantId, set }: any) => {
     const [plan] = await db
       .select()
       .from(contentPlans)
@@ -54,12 +54,12 @@ export const contentPlansRoutes = new Elysia({ prefix: '/api/v1/content-plans' }
 
     if (!plan) {
       set.status = 404;
-      return { error: 'Content plan not found' };
+      return { error: "Content plan not found" };
     }
     return { plan };
   })
   // Create content plan
-  .post('/', async ({ body, tenantId, set }: any) => {
+  .post("/", async ({ body, tenantId, set }: any) => {
     const input = createContentPlanSchema.parse(body);
     const [plan] = await db
       .insert(contentPlans)
@@ -78,22 +78,26 @@ export const contentPlansRoutes = new Elysia({ prefix: '/api/v1/content-plans' }
     return { plan };
   })
   // Update content plan
-  .put('/:id', async ({ params, body, tenantId, set }: any) => {
+  .put("/:id", async ({ params, body, tenantId, set }: any) => {
     const input = createContentPlanSchema.partial().parse(body);
     const [updated] = await db
       .update(contentPlans)
-      .set({ ...input, date: input.date ? new Date(input.date) : undefined, updatedAt: new Date() } as any)
+      .set({
+        ...input,
+        date: input.date ? new Date(input.date) : undefined,
+        updatedAt: new Date(),
+      } as any)
       .where(and(eq(contentPlans.id, params.id), eq(contentPlans.tenantId, tenantId)))
       .returning();
 
     if (!updated) {
       set.status = 404;
-      return { error: 'Content plan not found' };
+      return { error: "Content plan not found" };
     }
     return { plan: updated };
   })
   // Delete content plan
-  .delete('/:id', async ({ params, tenantId, set }: any) => {
+  .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db
       .delete(contentPlans)
       .where(and(eq(contentPlans.id, params.id), eq(contentPlans.tenantId, tenantId)))
@@ -101,7 +105,7 @@ export const contentPlansRoutes = new Elysia({ prefix: '/api/v1/content-plans' }
 
     if (!deleted) {
       set.status = 404;
-      return { error: 'Content plan not found' };
+      return { error: "Content plan not found" };
     }
     return { success: true };
   });

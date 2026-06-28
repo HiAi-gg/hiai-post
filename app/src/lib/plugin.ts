@@ -45,7 +45,7 @@ export interface PluginSettings {
 export interface ProxyConfig {
   prefix: string;
   target: string;
-  auth?: 'jwt' | 'api-key';
+  auth?: "jwt" | "api-key";
   rateLimit?: { requests: number; window: number };
 }
 
@@ -61,30 +61,32 @@ export interface HiAiPlugin {
   settings?: PluginSettings;
 }
 
-const API_TARGET = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:50300';
+const API_TARGET = import.meta.env.PUBLIC_API_URL ?? "http://localhost:50300";
 
 export const hiaiPostPlugin = {
-  id: 'hiai-post',
-  name: 'Social Media',
-  version: '1.0.0',
-  icon: 'Smartphone',
-  description: 'Social media content planning and publishing with AI',
-  navGroups: [{
-    label: 'Social Media',
-    icon: 'Smartphone',
-    items: [
-      { label: 'Dashboard', href: '/dashboard', icon: 'BarChart3' },
-      { label: 'Accounts', href: '/accounts', icon: 'User' },
-      { label: 'Posts', href: '/posts', icon: 'FileText' },
-      { label: 'Campaigns', href: '/campaigns', icon: 'Megaphone' },
-      { label: 'Content Plans', href: '/content-plans', icon: 'ClipboardList' },
-      { label: 'Templates', href: '/templates', icon: 'File' },
-      { label: 'Analytics', href: '/analytics', icon: 'TrendingUp' },
-    ],
-  }],
+  id: "hiai-post",
+  name: "Social Media",
+  version: "1.0.0",
+  icon: "Smartphone",
+  description: "Social media content planning and publishing with AI",
+  navGroups: [
+    {
+      label: "Social Media",
+      icon: "Smartphone",
+      items: [
+        { label: "Dashboard", href: "/dashboard", icon: "BarChart3" },
+        { label: "Accounts", href: "/accounts", icon: "User" },
+        { label: "Posts", href: "/posts", icon: "FileText" },
+        { label: "Campaigns", href: "/campaigns", icon: "Megaphone" },
+        { label: "Content Plans", href: "/content-plans", icon: "ClipboardList" },
+        { label: "Templates", href: "/templates", icon: "File" },
+        { label: "Analytics", href: "/analytics", icon: "TrendingUp" },
+      ],
+    },
+  ],
   proxy: {
-    prefix: '/api/social',
+    prefix: "/api/social",
     target: API_TARGET,
-    auth: 'jwt' as const,
+    auth: "jwt" as const,
   },
 } as const satisfies HiAiPlugin;

@@ -6,12 +6,11 @@
  * Scopes: w_member_social,r_liteprofile,r_emailaddress
  */
 
-import { encryptToken } from '../../lib/encryption.js';
-import { logger } from '../../lib/logger.js';
+import { logger } from "../../lib/logger.js";
 
-const LINKEDIN_AUTH_URL = 'https://www.linkedin.com/oauth/v2/authorization';
-const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
-const LINKEDIN_API_URL = 'https://api.linkedin.com/v2';
+const LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization";
+const LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
+const LINKEDIN_API_URL = "https://api.linkedin.com/v2";
 
 export interface LinkedInOAuthConfig {
   clientId: string;
@@ -55,8 +54,8 @@ export function getLinkedInAuthUrl(config: LinkedInOAuthConfig, state: string): 
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
-    scope: 'w_member_social,r_liteprofile,r_emailaddress',
-    response_type: 'code',
+    scope: "w_member_social,r_liteprofile,r_emailaddress",
+    response_type: "code",
     state,
   });
   return `${LINKEDIN_AUTH_URL}?${params}`;
@@ -64,10 +63,10 @@ export function getLinkedInAuthUrl(config: LinkedInOAuthConfig, state: string): 
 
 export async function exchangeLinkedInCode(
   config: LinkedInOAuthConfig,
-  code: string,
+  code: string
 ): Promise<LinkedInTokenResponse> {
   const params = new URLSearchParams({
-    grant_type: 'authorization_code',
+    grant_type: "authorization_code",
     code,
     redirect_uri: config.redirectUri,
     client_id: config.clientId,
@@ -75,15 +74,15 @@ export async function exchangeLinkedInCode(
   });
 
   const response = await fetch(LINKEDIN_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
     signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    logger.error({ status: response.status, error: err }, 'LinkedIn token exchange failed');
+    logger.error({ status: response.status, error: err }, "LinkedIn token exchange failed");
     throw new Error(`LinkedIn token exchange failed: ${response.status}`);
   }
 
@@ -104,25 +103,25 @@ export async function exchangeLinkedInCode(
 
 export async function refreshLinkedInToken(
   config: LinkedInOAuthConfig,
-  refreshToken: string,
+  refreshToken: string
 ): Promise<LinkedInTokenResponse> {
   const params = new URLSearchParams({
-    grant_type: 'refresh_token',
+    grant_type: "refresh_token",
     refresh_token: refreshToken,
     client_id: config.clientId,
     client_secret: config.clientSecret,
   });
 
   const response = await fetch(LINKEDIN_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params,
     signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    logger.error({ status: response.status, error: err }, 'LinkedIn token refresh failed');
+    logger.error({ status: response.status, error: err }, "LinkedIn token refresh failed");
     throw new Error(`LinkedIn token refresh failed: ${response.status}`);
   }
 
@@ -145,7 +144,7 @@ export async function getLinkedInUserProfile(accessToken: string): Promise<Linke
   const meRes = await fetch(`${LINKEDIN_API_URL}/me`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'X-Restli-Protocol-Version': '2.0.0',
+      "X-Restli-Protocol-Version": "2.0.0",
     },
     signal: AbortSignal.timeout(10000),
   });
@@ -161,28 +160,31 @@ export async function getLinkedInUserProfile(accessToken: string): Promise<Linke
     profilePicture?: { displayImage?: string };
   };
 
-  const personUrn = me.id ? `urn:li:person:${me.id}` : '';
+  const personUrn = me.id ? `urn:li:person:${me.id}` : "";
 
   // Fetch email
-  let email = '';
-  const emailRes = await fetch(`${LINKEDIN_API_URL}/emailAddress?q=members&projection=(elements*(handle~))`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'X-Restli-Protocol-Version': '2.0.0',
-    },
-    signal: AbortSignal.timeout(10000),
-  });
+  let email = "";
+  const emailRes = await fetch(
+    `${LINKEDIN_API_URL}/emailAddress?q=members&projection=(elements*(handle~))`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "X-Restli-Protocol-Version": "2.0.0",
+      },
+      signal: AbortSignal.timeout(10000),
+    }
+  );
 
   if (emailRes.ok) {
     const emailData = (await emailRes.json()) as {
-      elements?: Array<{ 'handle~'?: { emailAddress?: string } }>;
+      elements?: Array<{ "handle~"?: { emailAddress?: string } }>;
     };
-    email = emailData.elements?.[0]?.['handle~']?.emailAddress || '';
+    email = emailData.elements?.[0]?.["handle~"]?.emailAddress || "";
   }
 
   return {
-    sub: me.id || '',
-    name: `${me.localizedFirstName || ''} ${me.localizedLastName || ''}`.trim(),
+    sub: me.id || "",
+    name: `${me.localizedFirstName || ""} ${me.localizedLastName || ""}`.trim(),
     givenName: me.localizedFirstName,
     familyName: me.localizedLastName,
     email,
@@ -192,7 +194,7 @@ export async function getLinkedInUserProfile(accessToken: string): Promise<Linke
 }
 
 export async function publishLinkedInPost(
-  options: LinkedInPublishOptions,
+  options: LinkedInPublishOptions
 ): Promise<LinkedInPublishResult> {
   try {
     const { accessToken, personUrn, content, mediaUrl, title, description } = options;
@@ -201,17 +203,19 @@ export async function publishLinkedInPost(
 
     if (mediaUrl) {
       const registerRes = await fetch(`${LINKEDIN_API_URL}/assets?action=registerUpload`, {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'X-Restli-Protocol-Version': '2.0.0',
+          "Content-Type": "application/json",
+          "X-Restli-Protocol-Version": "2.0.0",
         },
         body: JSON.stringify({
           registerUploadRequest: {
-            recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
+            recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
             owner: personUrn,
-            serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],
+            serviceRelationships: [
+              { relationshipType: "OWNER", identifier: "urn:li:userGeneratedContent" },
+            ],
           },
         }),
         signal: AbortSignal.timeout(15000),
@@ -221,12 +225,15 @@ export async function publishLinkedInPost(
         const registerData = (await registerRes.json()) as {
           value?: {
             uploadMechanism?: {
-              'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'?: { uploadUrl: string };
+              "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"?: { uploadUrl: string };
             };
             asset?: string;
           };
         };
-        const uploadUrl = registerData.value?.uploadMechanism?.['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']?.uploadUrl;
+        const uploadUrl =
+          registerData.value?.uploadMechanism?.[
+            "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
+          ]?.uploadUrl;
         const registeredUrn = registerData.value?.asset;
 
         if (uploadUrl && registeredUrn) {
@@ -234,8 +241,8 @@ export async function publishLinkedInPost(
           if (mediaFetch.ok) {
             const blob = await mediaFetch.blob();
             await fetch(uploadUrl, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/octet-stream' },
+              method: "PUT",
+              headers: { "Content-Type": "application/octet-stream" },
               body: blob,
               signal: AbortSignal.timeout(60000),
             });
@@ -247,34 +254,36 @@ export async function publishLinkedInPost(
 
     const body: Record<string, unknown> = {
       author: personUrn,
-      lifecycleState: 'PUBLISHED',
+      lifecycleState: "PUBLISHED",
       specificContent: {
-        'com.linkedin.ugc.ShareContent': {
+        "com.linkedin.ugc.ShareContent": {
           shareCommentary: { text: content },
-          shareMediaCategory: imageUrn ? 'IMAGE' : 'NONE',
+          shareMediaCategory: imageUrn ? "IMAGE" : "NONE",
         },
       },
-      visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+      visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
     };
 
     if (imageUrn) {
-      const shareContent = (body.specificContent as Record<string, unknown>)['com.linkedin.ugc.ShareContent'] as Record<string, unknown>;
+      const shareContent = (body.specificContent as Record<string, unknown>)[
+        "com.linkedin.ugc.ShareContent"
+      ] as Record<string, unknown>;
       shareContent.media = [
         {
-          status: 'READY',
-          description: { text: description || title || '' },
+          status: "READY",
+          description: { text: description || title || "" },
           media: imageUrn,
-          title: { text: title || '' },
+          title: { text: title || "" },
         },
       ];
     }
 
     const response = await fetch(`${LINKEDIN_API_URL}/ugcPosts`, {
-      method: 'POST',
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0',
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0",
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
@@ -282,17 +291,17 @@ export async function publishLinkedInPost(
 
     if (!response.ok) {
       const err = await response.text();
-      logger.error({ status: response.status, error: err }, 'LinkedIn publish failed');
+      logger.error({ status: response.status, error: err }, "LinkedIn publish failed");
       return { success: false, error: `LinkedIn API error: ${response.status}` };
     }
 
-    const postId = response.headers.get('x-restli-id') || undefined;
+    const postId = response.headers.get("x-restli-id") || undefined;
     return { success: true, postId };
   } catch (error) {
-    logger.error({ error }, 'LinkedIn publish failed');
+    logger.error({ error }, "LinkedIn publish failed");
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

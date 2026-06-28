@@ -1,9 +1,9 @@
-import { logger } from '../lib/logger.js';
-import { db } from '../lib/db.js';
-import { posts } from '../db/schema.js';
-import { eq, and, lt, sql, like } from 'drizzle-orm';
+import { and, eq, like } from "drizzle-orm";
+import { posts } from "../db/schema.js";
+import { db } from "../lib/db.js";
+import { logger } from "../lib/logger.js";
 
-const log = logger.child({ module: 'dead-letter' });
+const log = logger.child({ module: "dead-letter" });
 
 const PROCESS_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RETRIES = 3;
@@ -12,19 +12,15 @@ const LEGACY_RETRY_PATTERN = /^retry:\d+:/;
 let migrationRan = false;
 
 export function startDeadLetterProcessor(): void {
-  log.info('Starting dead-letter queue processor');
+  log.info("Starting dead-letter queue processor");
 
   migrateLegacyRetryInfo().catch((err) =>
-    log.error({ error: String(err) }, 'Legacy retry-info migration failed'),
+    log.error({ error: String(err) }, "Legacy retry-info migration failed")
   );
 
   setInterval(async () => {
     try {
-      const failedPosts = await db
-        .select()
-        .from(posts)
-        .where(eq(posts.status, 'failed'))
-        .limit(50);
+      const failedPosts = await db.select().from(posts).where(eq(posts.status, "failed")).limit(50);
 
       let requeued = 0;
       let deadCount = 0;
@@ -37,8 +33,8 @@ export function startDeadLetterProcessor(): void {
           await db
             .update(posts)
             .set({
-              status: 'dead',
-              errorMessage: JSON.stringify({ status: 'dead', lastError: retryInfo.lastError }),
+              status: "dead",
+              errorMessage: JSON.stringify({ status: "dead", lastError: retryInfo.lastError }),
               updatedAt: new Date(),
             })
             .where(eq(posts.id, post.id));
@@ -46,7 +42,7 @@ export function startDeadLetterProcessor(): void {
           continue;
         }
 
-        const backoffMs = BASE_BACKOFF_MS * Math.pow(2, retryCount);
+        const backoffMs = BASE_BACKOFF_MS * 2 ** retryCount;
         const retryAt = new Date(post.updatedAt.getTime() + backoffMs);
 
         if (retryAt > new Date()) continue;
@@ -54,9 +50,12 @@ export function startDeadLetterProcessor(): void {
         await db
           .update(posts)
           .set({
-            status: 'scheduled',
+            status: "scheduled",
             scheduledAt: new Date(),
-            errorMessage: JSON.stringify({ retryCount: retryCount + 1, lastError: retryInfo.lastError }),
+            errorMessage: JSON.stringify({
+              retryCount: retryCount + 1,
+              lastError: retryInfo.lastError,
+            }),
             updatedAt: new Date(),
           })
           .where(eq(posts.id, post.id));
@@ -65,24 +64,24 @@ export function startDeadLetterProcessor(): void {
       }
 
       if (requeued > 0 || deadCount > 0) {
-        log.info({ requeued, dead: deadCount }, 'Dead-letter processor cycle complete');
+        log.info({ requeued, dead: deadCount }, "Dead-letter processor cycle complete");
       }
     } catch (err) {
-      log.error({ error: String(err) }, 'Dead-letter processor error');
+      log.error({ error: String(err) }, "Dead-letter processor error");
     }
   }, PROCESS_INTERVAL_MS);
 }
 
 function parseRetryInfo(errorMessage: string | null): { count: number; lastError: string } {
-  if (!errorMessage) return { count: 0, lastError: 'unknown' };
+  if (!errorMessage) return { count: 0, lastError: "unknown" };
 
   // Try JSON format first (new format)
   try {
     const meta = JSON.parse(errorMessage);
-    if (typeof meta === 'object' && meta !== null) {
+    if (typeof meta === "object" && meta !== null) {
       return {
-        count: typeof meta.retryCount === 'number' ? meta.retryCount : 0,
-        lastError: typeof meta.lastError === 'string' ? meta.lastError : errorMessage,
+        count: typeof meta.retryCount === "number" ? meta.retryCount : 0,
+        lastError: typeof meta.lastError === "string" ? meta.lastError : errorMessage,
       };
     }
   } catch {
@@ -106,7 +105,7 @@ export async function migrateLegacyRetryInfo(): Promise<{ migrated: number }> {
   const candidates = await db
     .select({ id: posts.id, errorMessage: posts.errorMessage })
     .from(posts)
-    .where(and(eq(posts.status, 'failed'), like(posts.errorMessage, 'retry:%')))
+    .where(and(eq(posts.status, "failed"), like(posts.errorMessage, "retry:%")))
     .limit(500);
 
   let migrated = 0;
@@ -123,7 +122,7 @@ export async function migrateLegacyRetryInfo(): Promise<{ migrated: number }> {
   }
 
   if (migrated > 0) {
-    log.info({ migrated }, 'Migrated legacy retry:N:... error messages to JSON format');
+    log.info({ migrated }, "Migrated legacy retry:N:... error messages to JSON format");
   }
   return { migrated };
 }

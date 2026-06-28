@@ -1,8 +1,8 @@
-import { createTool } from '@mastra/core/tools';
-import { z } from 'zod';
-import { config } from '@/lib/config';
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { config } from "@/lib/config";
 
-const TAVILY_ENDPOINT = 'https://api.tavily.com/search';
+const TAVILY_ENDPOINT = "https://api.tavily.com/search";
 const TAVILY_TIMEOUT_MS = 10_000;
 
 interface TavilyResult {
@@ -16,24 +16,26 @@ interface TavilyResponse {
 }
 
 export const webSearchTool = createTool({
-  id: 'web-search',
-  description: 'Search the web for trend research and content context',
+  id: "web-search",
+  description: "Search the web for trend research and content context",
   inputSchema: z.object({
-    query: z.string().describe('Search query'),
-    maxResults: z.number().default(5).describe('Maximum results to return'),
+    query: z.string().describe("Search query"),
+    maxResults: z.number().default(5).describe("Maximum results to return"),
   }),
   outputSchema: z.object({
-    results: z.array(z.object({
-      title: z.string(),
-      url: z.string(),
-      snippet: z.string(),
-    })),
+    results: z.array(
+      z.object({
+        title: z.string(),
+        url: z.string(),
+        snippet: z.string(),
+      })
+    ),
   }),
   execute: async (input: any) => {
     const { query, maxResults } = input;
 
     if (!config.TAVILY_API_KEY) {
-      console.warn('[web-search] TAVILY_API_KEY not set — returning empty results');
+      console.warn("[web-search] TAVILY_API_KEY not set — returning empty results");
       return { results: [] };
     }
 
@@ -42,9 +44,9 @@ export const webSearchTool = createTool({
 
     try {
       const response = await fetch(TAVILY_ENDPOINT, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           api_key: config.TAVILY_API_KEY,
@@ -62,17 +64,17 @@ export const webSearchTool = createTool({
 
       const data = (await response.json()) as TavilyResponse;
       const results = (data.results ?? []).map((r) => ({
-        title: r.title ?? '',
-        url: r.url ?? '',
-        snippet: r.content ?? '',
+        title: r.title ?? "",
+        url: r.url ?? "",
+        snippet: r.content ?? "",
       }));
 
       return { results };
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (err instanceof Error && err.name === "AbortError") {
         console.error(`[web-search] Tavily request timed out after ${TAVILY_TIMEOUT_MS}ms`);
       } else {
-        console.error('[web-search] Tavily request failed:', err);
+        console.error("[web-search] Tavily request failed:", err);
       }
       return { results: [] };
     } finally {
