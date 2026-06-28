@@ -1,5 +1,6 @@
 <script lang="ts">
 import { platformBrandColors } from "../platform-brand-colors";
+import { HiAiEditor, type EditorOutput } from "@hiai/ui";
 
 interface Props {
   content?: string;
@@ -157,9 +158,12 @@ function _removeMedia(index: number) {
   <!-- Content Editor (svelte-tiptap) -->
   <div>
     <div class="border border-border rounded-md overflow-hidden">
-      <TipexEditor
+      <HiAiEditor
         {content}
-        onUpdate={(md: string) => { content = md; }}
+        onUpdate={(out: EditorOutput) => {
+          content = out.markdown;
+          contentJson = out.json;
+        }}
         placeholder="Write your post content..."
       />
     </div>

@@ -24,7 +24,7 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
-    "@hiai/ui": "npm:@hiai-gg/hiai-ui@^0.0.7",
+    "@hiai/ui": "npm:@hiai-gg/hiai-ui@^0.0.8",
     "@tanstack/svelte-query": "^5.0.0",
     "@tanstack/svelte-table": "^8.21.0",
     "@tiptap/core": "^3.23.5",

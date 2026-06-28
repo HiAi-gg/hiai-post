@@ -69,7 +69,7 @@
 - [x] P3.1c: Audit middleware (POST/PUT/PATCH/DELETE → audit_logs, sensitive-key redaction) — DONE 2026-06-20
 - [x] P3.1d: Per-tenant rate limiting (`backend/src/api/middleware/rateLimiter.ts` — tenant-keyed bucket partitioning, `X-RateLimit-Tenant` header) — DONE 2026-06-20
 - [ ] P3.2: Per-tenant proxy forwarding (X-Tenant-Id header) — PENDING (requires hiai-admin proxy fix)
-- [ ] F1: Extract TipexEditor to @hiai/ui — DEFERRED
+- [x] F1: Migrate to HiAiEditor from @hiai/ui v0.0.8 — DONE 2026-06-28 (`Tipex` naming retired; local editor/ removed)
 - [x] F2: Migrate bun:test → Vitest — DONE 2026-06-28 (Vitest installed; CI uses `bunx vitest run --coverage`; root `bun test` script replaced)
 - [x] F3: LayerChart migration — DONE 2026-06-20 (`BarChart` from `layerchart` integrated in `app/src/lib/components/AnalyticsChart.svelte`; `BestTimeChart.svelte` heatmap also live in `app/src/routes/analytics/+page.svelte`)
 - [x] F4: Audit middleware shipped — DONE 2026-06-20 (RBAC parts deferred; audit ✅)
@@ -118,7 +118,7 @@
 ### Database Schemas (Drizzle ORM)
 
 - [x] 1.1 `social_accounts` table — id, tenant_id, platform (enum), account_id, username, display_name, avatar_url, access_token (encrypted), refresh_token (encrypted), token_expires_at, scopes, status (active/expired/revoked), connected_at, updated_at
-- [x] 1.2 `posts` table — id, tenant_id, social_account_id (FK), content_text, content_json (Tipex), media_urls (jsonb), platform, status (draft/scheduled/publishing/published/failed), scheduled_at, published_at, platform_post_id, error_message, content_hash, created_at, updated_at
+- [x] 1.2 `posts` table — id, tenant_id, social_account_id (FK), content_text, content_json (HiAiEditor), media_urls (jsonb), platform, status (draft/scheduled/publishing/published/failed), scheduled_at, published_at, platform_post_id, error_message, content_hash, created_at, updated_at
 - [x] 1.3 `content_plans` table — id, tenant_id, title, description, date, slot_time, post_id (FK nullable), campaign_id (FK nullable), status (planned/draft/published), created_at, updated_at
 - [x] 1.4 `campaigns` table — id, tenant_id, name, description, start_date, end_date, status (draft/active/completed/paused), created_at, updated_at
 - [x] 1.5 `post_templates` table — id, tenant_id, name, platform, content_text, ai_prompt, variables (jsonb), created_at, updated_at
@@ -236,7 +236,7 @@
 - [x] 6.8 `app/src/routes/posts/+page.svelte` — Post list with filters (status, platform, date range)
 - [x] 6.9 `app/src/routes/posts/new/+page.svelte` — Create new post
 - [x] 6.10 `app/src/routes/posts/[id]/+page.svelte` — Edit post
-- [x] 6.11 `app/src/lib/components/PostEditor.svelte` — Tipex rich text editor + AI generation panel + media upload
+- [x] 6.11 `app/src/lib/components/PostEditor.svelte` — HiAiEditor (TipTap) rich text editor + AI generation panel + media upload
 - [x] 6.12 `app/src/lib/components/PlatformPreview.svelte` — Preview post appearance per platform
 
 ### Content Plans

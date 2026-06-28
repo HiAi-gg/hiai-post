@@ -4,6 +4,7 @@ import { socialAccounts } from "../../db/schema.js";
 import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { requireAdmin, requireViewer } from "../middleware/rbac.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import { tenantMiddleware } from "../middleware/tenant.js";
 
@@ -13,6 +14,8 @@ export const accountsRoutes = new Elysia({ prefix: "/api/v1/accounts" })
   .use(createRateLimiter("authenticated"))
   .use(authMiddleware)
   .use(tenantMiddleware)
+  // Viewer by default for read ops
+  .use(requireViewer())
   // List connected social accounts
   .get("/", async (ctx: any) => {
     const tenantId = (ctx as any).tenantId;
@@ -59,6 +62,8 @@ export const accountsRoutes = new Elysia({ prefix: "/api/v1/accounts" })
     }
     return { account };
   })
+  // Disconnect is destructive — admin+
+  .use(requireAdmin())
   // Disconnect account
   .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db

@@ -6,6 +6,7 @@ import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
 import { enqueuePost, removeQueuedPost } from "../../lib/redis.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { requireAdmin, requireEditor, requireViewer } from "../middleware/rbac.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import { tenantMiddleware } from "../middleware/tenant.js";
 import {
@@ -21,6 +22,8 @@ export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
   .use(createRateLimiter("authenticated") as any)
   .use(authMiddleware)
   .use(tenantMiddleware)
+  // Viewer by default — anyone authenticated can read.
+  .use(requireViewer())
   // List posts with pagination and filters
   .get("/", async ({ tenantId, query }: any) => {
     const { page, limit, sortBy, sortOrder } = paginationSchema.parse(query);
@@ -71,6 +74,8 @@ export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
     }
     return { post };
   })
+  // Writes require editor+
+  .use(requireEditor())
   // Create post
   .post("/", async ({ body, tenantId, set }: any) => {
     const input = createPostSchema.parse(body);
@@ -150,6 +155,8 @@ export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
 
     return { post: updated };
   })
+  // Destructive ops require admin+
+  .use(requireAdmin())
   // Delete post
   .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db

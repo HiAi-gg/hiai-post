@@ -62,7 +62,7 @@ This project is part of the HiAi ecosystem. **Shared truth lives in the `project
 - [`../../docs/archive/HIAI_PROJECTS_ROADMAP.md`](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) — **project plan (section "hiai-post", phases P0–P3)**.
 
 **Role:** social media posting module, connects to `hiai-admin` (:50300). Admin manifest updated to v1.0.0 (`comingSoon` removed) — Phase 11.
-**What's next:** **P3.2 — per-tenant proxy forwarding (X-Tenant-Id header)** in `hiai-admin` proxy (blocked until proxy fix in admin). F1–F4 (TipexEditor extraction, Vitest migration, DataTable/LayerChart, RBAC + audit) — deferred. Details — in roadmap.
+**What's next:** **P3.2 — per-tenant proxy forwarding (X-Tenant-Id header)** in `hiai-admin` proxy (blocked until proxy fix in admin). F1 (TipexEditor extraction to @hiai/ui) DONE 2026-06-28 — consumed as HiAiEditor via @hiai/ui v0.0.8. F2 (Vitest) DONE; F3 (DataTable/LayerChart) DONE; F4 (audit) DONE. RBAC shipped 2026-06-28 (rbac.ts). Details — in roadmap.
 
 ### Project Documents (index)
 | Document | Purpose | Status |

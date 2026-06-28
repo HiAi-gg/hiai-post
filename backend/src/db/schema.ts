@@ -4,7 +4,9 @@ import {
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -170,6 +172,39 @@ export const postAnalytics = pgTable(
   ]
 );
 
+// ─── Tenant Members (RBAC) ───────────────────────────────
+// One row per (tenant, user) pair. `role` controls what the user can
+// do inside that tenant (see backend/src/api/middleware/rbac.ts).
+// The role enum is intentionally small — owner > admin > editor > viewer.
+// Tenant creation should always insert an 'owner' row for the creator.
+export const tenantRole = pgEnum("tenant_role", [
+  "viewer",
+  "editor",
+  "admin",
+  "owner",
+]);
+
+export const tenantMembers = pgTable(
+  "tenant_members",
+  {
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: tenantRole("role").notNull().default("viewer"),
+    invitedBy: text("invited_by").references(() => user.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.userId] }),
+    index("tenant_members_user_idx").on(table.userId),
+    index("tenant_members_tenant_role_idx").on(table.tenantId, table.role),
+  ]
+);
+
 // ─── Audit Logs ───────────────────────────────────────────
 export const auditLogs = pgTable(
   "audit_logs",
@@ -177,6 +212,10 @@ export const auditLogs = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "set null" }),
     actorId: text("actor_id"),
+    // Role at the time of the action. Nullable for pre-RBAC audit rows
+    // and for system-triggered actions (cron, webhooks) where there is
+    // no human actor.
+    role: tenantRole("role"),
     action: text("action").notNull(),
     resource: text("resource"),
     resourceId: text("resource_id"),
@@ -187,6 +226,7 @@ export const auditLogs = pgTable(
   (table) => [
     index("audit_logs_tenant_idx").on(table.tenantId),
     index("audit_logs_created_idx").on(table.createdAt),
+    index("audit_logs_actor_idx").on(table.actorId),
   ]
 );
 
@@ -252,6 +292,12 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
   campaigns: many(campaigns),
   postTemplates: many(postTemplates),
   auditLogs: many(auditLogs),
+  members: many(tenantMembers),
+}));
+
+export const tenantMembersRelations = relations(tenantMembers, ({ one }) => ({
+  tenant: one(tenants, { fields: [tenantMembers.tenantId], references: [tenants.id] }),
+  user: one(user, { fields: [tenantMembers.userId], references: [user.id] }),
 }));
 
 export const socialAccountsRelations = relations(socialAccounts, ({ one, many }) => ({

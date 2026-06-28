@@ -88,7 +88,7 @@ bun run dev
 - **AI Content Generation** — Mastra workflows generate platform-native posts from a single topic input
 - **Multi-platform Publishing** — Instagram, TikTok, X, LinkedIn, Facebook, Telegram, Threads, Pinterest, YouTube (Shorts + Long), Blog from one interface
 - **Content Calendar** — Drag-and-drop scheduling with month, week, and day views, timezone-aware
-- **Post Editor** — Tipex rich text editor with inline AI generation and media upload
+- **Post Editor** — HiAiEditor (TipTap-based) rich text with inline AI generation and media upload
 - **Queue Management** — Redis-based scheduler with retry, backoff, and dead letter queue
 - **Analytics Dashboard** — Engagement metrics, reach, impressions, CTR per post and platform
 - **Template System** — Reusable post templates with AI prompt presets
@@ -206,7 +206,7 @@ bun run dev
       /lib
         /components
           Calendar.svelte       # Drag-and-drop calendar (month + week + day views)
-          PostEditor.svelte     # Tipex + AI panel
+          PostEditor.svelte     # HiAiEditor + AI panel (consumed from @hiai/ui)
           PlatformCard.svelte   # Social account card
           AnalyticsChart.svelte # LayerChart wrapper
           BestTimeChart.svelte  # Heatmap chart for best posting times

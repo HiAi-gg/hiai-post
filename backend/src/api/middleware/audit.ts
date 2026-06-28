@@ -9,6 +9,7 @@
  * Captured fields (per schema.ts → auditLogs):
  *   - tenant_id     → context.tenantId (set by tenantMiddleware)
  *   - actor_id      → context.user.id  (set by authMiddleware)
+ *   - role          → context.role     (set by rbacMiddleware, if any)
  *   - action        → HTTP method in upper case (POST / PUT / PATCH / DELETE)
  *   - resource      → route path  (e.g. "/api/v1/posts/:id")
  *   - resource_id   → trailing path param if it looks like a UUID / opaque id
@@ -117,9 +118,10 @@ function extractResourceId(path: string): string | null {
 }
 
 export const auditMiddleware = new Elysia({ name: "audit" }).onAfterHandle(async (ctx) => {
-  const { request, set, user, tenantId } = ctx as typeof ctx & {
+  const { request, set, user, tenantId, role } = ctx as typeof ctx & {
     user?: { id: string };
     tenantId?: string;
+    role?: import("../../db/schema.js").TenantRole | null;
   };
 
   const method = request.method.toUpperCase();
@@ -159,6 +161,7 @@ export const auditMiddleware = new Elysia({ name: "audit" }).onAfterHandle(async
     await db.insert(auditLogs).values({
       tenantId: tenantId ?? null,
       actorId: user?.id ?? null,
+      role: role ?? null,
       action: method,
       resource: path,
       resourceId: extractResourceId(path),
