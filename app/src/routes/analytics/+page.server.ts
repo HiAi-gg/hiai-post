@@ -11,17 +11,19 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
   if (to) qs.set('to', to);
   const query = qs.toString();
 
-  const [overviewRes, platformsRes, topPostsRes, postsRes] = await Promise.allSettled([
+  const [overviewRes, platformsRes, topPostsRes, postsRes, bestTimesRes] = await Promise.allSettled([
     fetch(`/api/v1/analytics/overview?${query}`).then(r => r.json()),
     fetch(`/api/v1/analytics/platforms?${query}`).then(r => r.json()),
     fetch(`/api/v1/analytics/top-posts?${query}&limit=10`).then(r => r.json()),
     fetch(`/api/v1/posts?limit=50&status=published`).then(r => r.json()),
+    fetch(`/api/v1/analytics/best-times?${query}`).then(r => r.json()),
   ]);
 
   const overview = overviewRes.status === 'fulfilled' ? overviewRes.value?.metrics ?? {} : {};
   const platforms = platformsRes.status === 'fulfilled' ? platformsRes.value?.platforms ?? [] : [];
   const topPosts = topPostsRes.status === 'fulfilled' ? topPostsRes.value?.posts ?? [] : [];
   const recentPosts = postsRes.status === 'fulfilled' ? postsRes.value?.data ?? [] : [];
+  const bestTimes = bestTimesRes.status === 'fulfilled' ? bestTimesRes.value?.slots ?? [] : [];
 
   // Build engagement timeline from recent posts (group by day)
   const timeline: Record<string, { impressions: number; reach: number; engagement: number; count: number }> = {};
@@ -34,7 +36,8 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, d]) => ({ date, ...d }));
 
-  // Best posting times (extract hour from published posts)
+  // Best posting hours fallback (extract hour from published posts) — used only
+  // when the analytics/best-times endpoint returns no slots.
   const hourCounts: Record<number, number> = {};
   for (const post of recentPosts) {
     if (post.publishedAt) {
@@ -66,6 +69,7 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
     topPosts,
     timeline: timelineData,
     bestHours,
+    bestTimes,
     tenantId,
   };
 };

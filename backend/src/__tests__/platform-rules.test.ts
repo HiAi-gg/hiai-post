@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { platformRules, getPlatformRule, validateContent } from '../lib/platform-rules.js';
 
 describe('Platform Rules', () => {

@@ -15,6 +15,11 @@ const configSchema = z.object({
   // admin-minted HS256 JWTs in addition to Better Auth session tokens.
   HIAI_ADMIN_JWT_SECRET: z.string().optional(),
 
+  // hiai-store webhook auth: shared secret the store service sends in the
+  // X-Webhook-Secret header when calling /api/v1/webhooks/store-product.
+  // Optional — webhook receiver rejects all calls when unset.
+  HIAI_STORE_WEBHOOK_SECRET: z.string().optional(),
+
   // Encryption
   TOKEN_ENCRYPTION_KEY: z.string().min(32),
 
@@ -39,7 +44,11 @@ const configSchema = z.object({
 
   // Mastra / LLM
   OPENROUTER_API_KEY: z.string().default(''),
+  OPENAI_API_KEY: z.string().default(''),
   MASTRA_MODEL: z.string().default('openai/gpt-4o'),
+
+  // Web search (Tavily) — optional; web-search tool falls back to empty results when unset
+  TAVILY_API_KEY: z.string().default(''),
 
   // MinIO
   MINIO_ENDPOINT: z.string().default('localhost'),
@@ -55,6 +64,9 @@ const configSchema = z.object({
 
   // Environment
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+
+  // Observability
+  SENTRY_DSN: z.string().default(''),
 });
 
 export type Config = z.infer<typeof configSchema>;

@@ -1,12 +1,12 @@
 /**
  * Tests for the OAuth state store (CWE-352 mitigation).
- * Run with: bun test src/lib/oauth-state.test.ts
+ * Run with: npx vitest run src/lib/oauth-state.test.ts
  */
-import { describe, expect, it, beforeEach, mock } from "bun:test";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 
 const store = new Map<string, string>();
 
-mock.module("../lib/config.js", () => ({
+vi.mock("../lib/config.js", () => ({
 	config: { BETTER_AUTH_SECRET: "x".repeat(48) },
 	getConfig: () => ({
 		BETTER_AUTH_SECRET: "x".repeat(48),
@@ -14,7 +14,7 @@ mock.module("../lib/config.js", () => ({
 	}),
 }));
 
-mock.module("../lib/logger.js", () => {
+vi.mock("../lib/logger.js", () => {
 	const childLogger = {
 		warn: () => {},
 		error: () => {},
@@ -33,7 +33,7 @@ mock.module("../lib/logger.js", () => {
 	};
 });
 
-mock.module("../lib/redis.js", () => ({
+vi.mock("../lib/redis.js", () => ({
 	redis: {
 		setex: async (key: string, _ttl: number, value: string) => {
 			store.set(key, value);

@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { verifyAdminJwt } from '../src/api/middleware/auth.js';
+
+// Set required env vars BEFORE importing modules that read config at load time.
+// These env vars are read by src/lib/config.ts when getConfig() is called during module init.
+process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
+process.env.BETTER_AUTH_SECRET ??= 'test-secret-key-min-32-characters-long';
+process.env.TOKEN_ENCRYPTION_KEY ??= '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+process.env.MINIO_SECRET_KEY ??= 'test-minio-secret';
+process.env.HIAI_ADMIN_JWT_SECRET ??= 'shared-admin-jwt-secret-32chars-please';
+
+const { verifyAdminJwt } = await import('../src/api/middleware/auth.js');
 
 const SECRET = 'shared-admin-jwt-secret-32chars-please';
 

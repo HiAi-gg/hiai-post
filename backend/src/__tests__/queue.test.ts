@@ -1,18 +1,18 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { PublishQueue } from '../core/scheduler/queue.js';
 
 function createMockRedis() {
   return {
-    zadd: mock(() => Promise.resolve(1)),
-    zrangebyscore: mock(() => Promise.resolve([])),
-    zrange: mock(() => Promise.resolve([])),
-    zrem: mock(() => Promise.resolve(1)),
-    zcard: mock(() => Promise.resolve(0)),
-    zscore: mock(() => Promise.resolve(null)),
-    multi: mock(() => ({
-      incr: mock(function(this: any) { return this; }),
-      pexpire: mock(function(this: any) { return this; }),
-      exec: mock(() => Promise.resolve([])),
+    zadd: vi.fn(() => Promise.resolve(1)),
+    zrangebyscore: vi.fn(() => Promise.resolve([])),
+    zrange: vi.fn(() => Promise.resolve([])),
+    zrem: vi.fn(() => Promise.resolve(1)),
+    zcard: vi.fn(() => Promise.resolve(0)),
+    zscore: vi.fn(() => Promise.resolve(null)),
+    multi: vi.fn(() => ({
+      incr: vi.fn(function(this: any) { return this; }),
+      pexpire: vi.fn(function(this: any) { return this; }),
+      exec: vi.fn(() => Promise.resolve([])),
     })),
   } as any;
 }

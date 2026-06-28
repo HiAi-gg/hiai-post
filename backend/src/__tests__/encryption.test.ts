@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, mock } from 'bun:test';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 
-mock.module('../lib/config.js', () => ({
+vi.mock('../lib/config.js', () => ({
   config: {
     DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
     BETTER_AUTH_SECRET: 'test-secret-key-min-32-characters-long',
@@ -17,7 +17,7 @@ mock.module('../lib/config.js', () => ({
   }),
 }));
 
-mock.module('../lib/logger.js', () => {
+vi.mock('../lib/logger.js', () => {
   const childLogger = { warn: () => {}, error: () => {}, info: () => {} };
   const pinoLogger = {
     child: () => childLogger,

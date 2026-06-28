@@ -185,9 +185,20 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
         body.code_verifier = 'challenge';
       }
 
+      // Pinterest requires HTTP Basic Auth for token exchange; client_secret must NOT be in body.
+      const tokenHeaders: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      };
+      if (params.platform === 'pinterest') {
+        const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+        tokenHeaders['Authorization'] = `Basic ${basic}`;
+        delete body.client_id;
+        delete body.client_secret;
+      }
+
       const tokenResponse = await fetch(platformConfig.tokenUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: tokenHeaders,
         body: new URLSearchParams(body),
         signal: AbortSignal.timeout(10000),
       });
@@ -220,6 +231,37 @@ export const oauthRoutes = new Elysia({ prefix: '/api/v1/oauth' })
           const me = (await meRes.json()) as Record<string, unknown>;
           accountId = String(me.id);
           displayName = String(me.name || '');
+        }
+      } else if (params.platform === 'threads') {
+        // Threads returns user_id inline with the token; profile comes from Meta Graph API.
+        const threadsUserId = String(tokenData.user_id || '');
+        if (threadsUserId) {
+          accountId = threadsUserId;
+          const meRes = await fetch(
+            `https://graph.threads.net/v1.0/${threadsUserId}?fields=id,username,name,threads_profile_picture_url`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              signal: AbortSignal.timeout(10000),
+            }
+          );
+          if (meRes.ok) {
+            const me = (await meRes.json()) as Record<string, unknown>;
+            username = String(me.username || '');
+            displayName = String(me.name || '');
+            avatarUrl = String(me.threads_profile_picture_url || '');
+          }
+        }
+      } else if (params.platform === 'pinterest') {
+        const meRes = await fetch('https://api.pinterest.com/v5/user_account', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (meRes.ok) {
+          const me = (await meRes.json()) as Record<string, unknown>;
+          accountId = String(me.id || '');
+          username = String(me.username || '');
+          displayName = String(me.business_name || me.username || '');
+          avatarUrl = String(me.profile_image || '');
         }
       } else if (params.platform === 'x') {
         const meRes = await fetch('https://api.x.com/2/users/me', {

@@ -3,6 +3,7 @@
   import Calendar from '$lib/components/Calendar.svelte';
   import UpcomingPosts from '$lib/components/UpcomingPosts.svelte';
   import { StatsCard, StatusBadge } from '@hiai/ui';
+  import { api } from '$lib/api';
 
   let { data }: { data: PageData } = $props();
 
@@ -37,6 +38,61 @@
   const nextPostTime = $derived(
     nextPost?.scheduledAt ? new Date(nextPost.scheduledAt) : null
   );
+
+  // Summary stats fetched from the API client (app/src/lib/api.ts).
+  // Loaded client-side so the dashboard hydrates with live counts even when
+  // the server load omits them, and so the API client is the single fetch
+  // surface for stats.
+  type SummaryStats = {
+    totalPosts: number;
+    scheduled: number;
+    published: number;
+    connectedAccounts: number;
+  };
+
+  let stats: SummaryStats = $state({
+    totalPosts: 0,
+    scheduled: 0,
+    published: 0,
+    connectedAccounts: 0,
+  });
+  let statsLoading = $state(true);
+  let statsError: string | null = $state(null);
+
+  $effect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [totalRes, scheduledRes, publishedRes, accountsRes] = await Promise.all([
+          api.get<{ pagination?: { total?: number } }>('/api/v1/posts?limit=1'),
+          api.get<{ pagination?: { total?: number } }>(
+            '/api/v1/posts?limit=1&status=scheduled'
+          ),
+          api.get<{ pagination?: { total?: number } }>(
+            '/api/v1/posts?limit=1&status=published'
+          ),
+          api.get<{ data?: Array<{ status?: string }> }>('/api/v1/accounts'),
+        ]);
+        if (cancelled) return;
+        const accounts = accountsRes.data ?? [];
+        stats = {
+          totalPosts: totalRes.pagination?.total ?? 0,
+          scheduled: scheduledRes.pagination?.total ?? 0,
+          published: publishedRes.pagination?.total ?? 0,
+          connectedAccounts: accounts.filter((a) => a.status === 'active').length,
+        };
+        statsError = null;
+      } catch (err) {
+        if (cancelled) return;
+        statsError = err instanceof Error ? err.message : 'Failed to load summary';
+      } finally {
+        if (!cancelled) statsLoading = false;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  });
 </script>
 
 <svelte:head>
@@ -51,17 +107,60 @@
     </a>
   </div>
 
-  <!-- Stats -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <StatsCard label="Scheduled · in queue" value={data.queueStatus.pending ?? 0} accent="info" />
-    <StatsCard label="Published · total" value={data.queueStatus.published ?? 0} accent="success" />
-    <StatsCard
-      label="Failed · dead letter"
-      value={data.queueStatus.failed ?? 0}
-      accent={(data.queueStatus.failed ?? 0) > 0 ? 'danger' : 'primary'}
-    />
-    <StatsCard label="Accounts · connected" value={data.accounts.length} accent="violet" />
-  </div>
+  <!-- Summary stats -->
+  <section>
+    <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Summary</h2>
+    {#if statsError}
+      <p class="text-sm text-destructive mb-3" role="alert">
+        Failed to load summary: {statsError}
+      </p>
+    {/if}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <a
+        href="/posts"
+        class="bg-card border border-border rounded-lg p-4 text-foreground hover:border-primary transition-colors block"
+      >
+        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Posts</p>
+        <p class="text-2xl font-bold mt-2 text-foreground">{statsLoading ? '—' : stats.totalPosts}</p>
+      </a>
+      <a
+        href="/posts?status=scheduled"
+        class="bg-card border border-border rounded-lg p-4 text-foreground hover:border-primary transition-colors block"
+      >
+        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scheduled</p>
+        <p class="text-2xl font-bold mt-2 text-foreground">{statsLoading ? '—' : stats.scheduled}</p>
+      </a>
+      <a
+        href="/posts?status=published"
+        class="bg-card border border-border rounded-lg p-4 text-foreground hover:border-primary transition-colors block"
+      >
+        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Published</p>
+        <p class="text-2xl font-bold mt-2 text-foreground">{statsLoading ? '—' : stats.published}</p>
+      </a>
+      <a
+        href="/accounts"
+        class="bg-card border border-border rounded-lg p-4 text-foreground hover:border-primary transition-colors block"
+      >
+        <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Connected Accounts</p>
+        <p class="text-2xl font-bold mt-2 text-foreground">{statsLoading ? '—' : stats.connectedAccounts}</p>
+      </a>
+    </div>
+  </section>
+
+  <!-- Queue stats -->
+  <section>
+    <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Publish Queue</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <StatsCard label="Pending · in queue" value={data.queueStatus.pending ?? 0} accent="info" />
+      <StatsCard label="Published · total" value={data.queueStatus.published ?? 0} accent="success" />
+      <StatsCard
+        label="Failed · dead letter"
+        value={data.queueStatus.failed ?? 0}
+        accent={(data.queueStatus.failed ?? 0) > 0 ? 'danger' : 'primary'}
+      />
+      <StatsCard label="Accounts · connected" value={data.accounts.length} accent="violet" />
+    </div>
+  </section>
 
   <!-- Next Scheduled Post -->
   {#if nextPost}

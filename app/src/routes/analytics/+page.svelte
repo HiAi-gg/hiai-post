@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from './$types';
+  import BestTimeChart from '$lib/components/BestTimeChart.svelte';
 
   let { data }: { data: PageData } = $props();
   const a = $derived(data.overview);
@@ -7,6 +8,7 @@
   const topPosts = $derived(data.topPosts);
   const timeline = $derived(data.timeline);
   const bestHours = $derived(data.bestHours);
+  const bestTimes = $derived(data.bestTimes ?? []);
 
   // Platform icon/color map
   const platformMeta: Record<string, { icon: string; color: string; bg: string }> = {
@@ -209,9 +211,11 @@
   </div>
 
   <!-- Best Posting Times Heatmap -->
-  <div class="bg-card border border-border rounded-lg p-6">
-    <h2 class="text-lg font-semibold mb-4">Best Posting Times</h2>
-    {#if bestHours.length > 0}
+  <BestTimeChart slots={bestTimes} title="Best Posting Times" />
+
+  {#if bestTimes.length === 0 && bestHours.length > 0}
+    <div class="bg-card border border-border rounded-lg p-6">
+      <h2 class="text-lg font-semibold mb-4">Top Hours (fallback)</h2>
       <div class="grid grid-cols-5 gap-3">
         {#each bestHours as h, i}
           <div class="text-center p-3 rounded-lg {i === 0 ? 'bg-primary/10 border-2 border-primary' : 'bg-muted'}">
@@ -223,8 +227,6 @@
           </div>
         {/each}
       </div>
-    {:else}
-      <p class="text-muted-foreground text-center py-8">Not enough data to determine best posting times. Publish more posts to see patterns.</p>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </div>

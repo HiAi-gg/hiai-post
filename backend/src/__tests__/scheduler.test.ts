@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { shouldRetry, getNextRetryTime, getMaxRetries } from '../core/scheduler/retry.js';
 import { getPlatformLimits } from '../core/scheduler/rate-limiter.js';
 

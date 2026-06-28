@@ -1,3 +1,9 @@
+# Internal planning / audit files (not for open-source)
+todo.md
+AGENTS.md
+AGENTS.md.bak
+todo.md.bak
+
 # Dependencies
 node_modules/
 

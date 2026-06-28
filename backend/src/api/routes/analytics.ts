@@ -9,6 +9,7 @@ import {
   getTopPosts,
 } from '../../core/analytics/aggregator.js';
 import { getCrossPlatformMetrics } from '../../modules/analytics/cross-platform.js';
+import { getBestPostingTimes, type Platform } from '../../core/analytics/best-time.js';
 import { logger } from '../../lib/logger.js';
 
 export function analyticsRoutes() {
@@ -145,6 +146,34 @@ export function analyticsRoutes() {
           limit: t.Optional(t.String()),
           from: t.Optional(t.String()),
           to: t.Optional(t.String()),
+        }),
+      }
+    )
+
+    .get(
+      '/best-times',
+      async ({ query, set }) => {
+        try {
+          const tenantId = query.tenantId;
+          if (!tenantId) {
+            set.status = 400;
+            return { error: 'tenantId is required' };
+          }
+
+          const platform = query.platform as Platform | undefined;
+          const slots = await getBestPostingTimes(tenantId, platform);
+          return { success: true, slots };
+        } catch (err) {
+          set.status = 500;
+          const message = err instanceof Error ? err.message : String(err);
+          logger.error({ error: message }, 'Best posting times error');
+          return { error: message };
+        }
+      },
+      {
+        query: t.Object({
+          tenantId: t.String(),
+          platform: t.Optional(t.String()),
         }),
       }
     )
