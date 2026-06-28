@@ -587,6 +587,141 @@ Cross-platform comparison metrics.
 
 **Response `200`:** `{ "success": true, "metrics": { ... } }`
 
+### GET /api/v1/analytics/best-times
+
+Best posting-time slots derived from the last 90 days of historical engagement
+data. Returns up to 3 slots per platform (top by average engagement rate). Slot
+fields are useful for the Calendar UI to suggest optimal drop-in times.
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `tenantId` | string | **required** | Tenant ID |
+| `platform` | string | — | Filter to one platform: `instagram`, `x`, `linkedin`, `tiktok`, `facebook`, `telegram`, `threads`, `pinterest`, `youtube` |
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "slots": [
+    {
+      "platform": "instagram",
+      "hour": 19,
+      "dayOfWeek": 2,
+      "avgEngagementRate": 6.42,
+      "postCount": 14
+    },
+    {
+      "platform": "instagram",
+      "hour": 12,
+      "dayOfWeek": 4,
+      "avgEngagementRate": 5.81,
+      "postCount": 9
+    },
+    {
+      "platform": "instagram",
+      "hour": 9,
+      "dayOfWeek": 1,
+      "avgEngagementRate": 4.97,
+      "postCount": 11
+    },
+    {
+      "platform": "x",
+      "hour": 17,
+      "dayOfWeek": 3,
+      "avgEngagementRate": 3.55,
+      "postCount": 7
+    }
+  ]
+}
+```
+
+Field notes:
+- `hour` is 0–23 in **UTC** (server storage timezone).
+- `dayOfWeek` is 0–6, Sunday = 0 (PostgreSQL `extract(dow …)`).
+- `avgEngagementRate` is a percentage (e.g. `6.42` = 6.42%).
+- `postCount` is the number of historical posts that contributed to the slot.
+
+**Response `400`:** `{ "error": "tenantId is required" }`
+
+---
+
+## Webhooks
+
+Webhook receivers are called by sibling hiai-kit services. All webhook
+endpoints authenticate via a shared `X-Webhook-Secret` header (constant-time
+comparison) — they do **not** use the user `Authorization` header. Secrets are
+configured via environment variables (see `.env.example`).
+
+### POST /api/v1/webhooks/store-product
+
+Inbound webhook from **hiai-store**: a new product was created/updated. The
+receiver creates a `draft` post so the merchant can review, edit, and schedule
+without leaving hiai-post.
+
+**Auth:** `X-Webhook-Secret` header (must equal `HIAI_STORE_WEBHOOK_SECRET`).
+
+**Request body:**
+```json
+{
+  "tenantId": "uuid (required)",
+  "productId": "string (required, 1-200 chars)",
+  "productName": "string (required, 1-500 chars)",
+  "productUrl": "https://... (required, valid URL)",
+  "productImage": "https://... (optional, valid URL)",
+  "platform": "instagram (required, 1-50 chars)"
+}
+```
+
+Validation: Zod schema enforces the shape above. `tenantId` must be a UUID.
+
+**Response `201` (new draft created):**
+```json
+{
+  "post": {
+    "id": "uuid",
+    "tenantId": "uuid",
+    "socialAccountId": null,
+    "contentText": "New: Acme Wireless Headphones\n\nShop now: https://store.example.com/p/acme-headphones",
+    "contentJson": {
+      "source": "hiai-store-webhook",
+      "productId": "prod_abc123",
+      "productUrl": "https://store.example.com/p/acme-headphones",
+      "platform": "instagram"
+    },
+    "mediaUrls": ["https://cdn.example.com/p/acme-headphones.jpg"],
+    "platform": "instagram",
+    "status": "draft",
+    "scheduledAt": null,
+    "publishedAt": null,
+    "platformPostId": null,
+    "errorMessage": null,
+    "contentHash": "f1e0d5b7a9c3...",
+    "createdAt": "2026-06-20T10:00:00.000Z",
+    "updatedAt": "2026-06-20T10:00:00.000Z"
+  }
+}
+```
+
+**Response `200` (idempotent — already processed):**
+```json
+{
+  "post": { "id": "uuid" },
+  "deduplicated": true
+}
+```
+
+Idempotency: the handler hashes `(tenantId, productId, platform)` with SHA-256
+and stores it in `posts.content_hash`. Re-deliveries for the same
+`(tenant, product, platform)` tuple return the original post instead of
+creating a duplicate. A different platform for the same product still produces
+a fresh draft.
+
+**Response `400`:** `{ "error": "Zod validation error message" }`
+**Response `401`:** `{ "error": "Invalid webhook signature" }`
+**Response `503`:** `{ "error": "Webhook receiver is not configured" }` (env var missing)
+
 ---
 
 ## OAuth

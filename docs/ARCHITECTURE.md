@@ -32,50 +32,68 @@ hiai-post is a multi-tenant social media content planning and publishing platfor
                               │ HTTP REST + SSE
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                    hiai-post-api (Elysia)                         │
-│                         Port 50300                                │
-│                                                                   │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │
-│  │ Accounts │ │  Posts   │ │Content   │ │Campaigns │ │Templates│ │
-│  │ Route    │ │  Route   │ │Plans R.  │ │ Route    │ │ Route   │ │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬───┘ │
-│       │            │            │            │            │      │
-│  ┌────▼────────────▼────────────▼────────────▼────────────▼────┐ │
-│  │                     Middleware Stack                          │ │
-│  │  auth.ts · tenant.ts · rateLimiter.ts · secureHeaders.ts     │ │
-│  └────────────────────────────┬─────────────────────────────────┘ │
-│                               │                                   │
-│  ┌────────────────────────────▼─────────────────────────────────┐ │
-│  │                     Core Business Logic                       │ │
-│  │                                                               │ │
-│  │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐   │ │
-│  │  │  Publisher   │  │  Scheduler   │  │  Analytics         │   │ │
-│  │  │  (platform   │  │  (Redis      │  │  Aggregator        │   │ │
-│  │  │   adapters)  │  │   sorted     │  │  (platform APIs)   │   │ │
-│  │  └──────┬──────┘  │   sets)      │  └────────────────────┘   │ │
-│  │         │         └──────────────┘                            │ │
-│  │  ┌──────▼──────┐                                             │ │
-│  │  │ Mastra AI   │                                             │ │
-│  │  │ Workflows   │                                             │ │
-│  │  └─────────────┘                                             │ │
-│  └────────────────────────────┬─────────────────────────────────┘ │
-│                               │                                   │
-│  ┌────────────────────────────▼─────────────────────────────────┐ │
-│  │                     Data Access Layer                         │ │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │ │
-│  │  │  Drizzle  │  │  Redis   │  │  MinIO   │  │  Integration │ │ │
-│  │  │  ORM      │  │  Client  │  │  Client  │  │  Clients     │ │ │
-│  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘ │ │
-│  └───────┼─────────────┼──────────────┼────────────────┼─────────┘ │
-└──────────┼─────────────┼──────────────┼────────────────┼───────────┘
-           │             │              │                │
-           ▼             ▼              ▼                ▼
-    ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────────┐
-    │PostgreSQL│  │  Redis   │  │  MinIO   │  │   Platform APIs   │
-    │+pgvector │  │ 8.6+     │  │ (Object  │  │ IG · TikTok · X   │
-    │  18.4    │  │          │  │  Store)  │  │ LI · FB · TG · YT │
-    └──────────┘  └──────────┘  └──────────┘  │ Threads · Pins    │
-                                               └───────────────────┘
+│  hiai-store ─── POST /api/v1/webhooks/store-product ──┐          │
+│  (product.created/updated, X-Webhook-Secret header)   │          │
+│  auto-publish flow ───────────────────────────────────┤          │
+└───────────────────────────────────────────────────────┼──────────┘
+                                                        │
+   ┌────────────────────────────────────────────────────▼───────────┐
+   │                    hiai-post-api (Elysia)                      │
+   │                         Port 50300                             │
+   │                                                                │
+   │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────┐│ │
+   │  │ Accounts │ │  Posts   │ │Content   │ │Campaigns │ │Templa-││ │
+   │  │ Route    │ │  Route   │ │Plans R.  │ │ Route    │ │tes R. ││ │
+   │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └───┬───┘│ │
+   │       │            │            │            │           │     │ │
+   │  ┌────▼────────────▼────────────▼────────────▼───────────▼─┐  │ │
+   │  │                  Middleware Stack                        │  │ │
+   │  │  auth.ts → tenant.ts → rateLimiter.ts (per-tenant,       │  │ │
+   │  │    Redis ZSET rl:<tier>:<tenant_id>:<ip>)                │  │ │
+   │  │  → secureHeaders.ts → audit.ts (POST/PUT/PATCH/DELETE →  │  │ │
+   │  │    audit_logs on success, redacts secrets, fails open)   │  │ │
+   │  └────────────────────────────┬─────────────────────────────┘  │ │
+   │                               │                                │ │
+   │  ┌────────────────────────────▼───────────────────────────────┐ │ │
+   │  │                  Core Business Logic                       │ │ │
+   │  │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐   │ │ │
+   │  │  │  Publisher   │  │  Scheduler   │  │  Analytics      │   │ │ │
+   │  │  │  (platform   │  │  (Redis      │  │  Aggregator     │   │ │ │
+   │  │  │   adapters)  │  │   sorted     │  │  (platform APIs)│   │ │ │
+   │  │  └──────┬──────┘  │   sets)      │  └────────┬────────┘   │ │ │
+   │  │         │         └──────────────┘           │            │ │ │
+   │  │  ┌──────▼──────┐                  ┌──────────▼─────────┐  │ │ │
+   │  │  │ Mastra AI   │                  │  Error Reporter    │  │ │ │
+   │  │  │ Workflows   │                  │  (pino → DSN)      │  │ │ │
+   │  │  └─────────────┘                  └──────────┬─────────┘  │ │ │
+   │  └─────────────────────────────────────────────┼────────────┘ │ │
+   │                                                │              │ │
+   │  ┌─────────────────────────────────────────────▼──────────────┐ │ │
+   │  │                     Data Access Layer                       │ │ │
+   │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────┐ │ │ │
+   │  │  │  Drizzle  │  │  Redis   │  │  MinIO   │  │ Integration│ │ │ │
+   │  │  │  ORM      │  │  Client  │  │  Client  │  │  Clients   │ │ │ │
+   │  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └─────┬──────┘ │ │ │
+   │  └───────┼─────────────┼──────────────┼───────────────┼────────┘ │ │
+   └──────────┼─────────────┼──────────────┼───────────────┼──────────┘
+              │             │              │               │
+              ▼             ▼              ▼               ▼
+       ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────────┐
+       │PostgreSQL│  │  Redis   │  │  MinIO   │  │   Platform APIs   │
+       │+pgvector │  │ 8.6+     │  │ (Object  │  │ IG · TikTok · X   │
+       │  18.4    │  │          │  │  Store)  │  │ LI · FB · TG · YT │
+       │+audit_log│  │          │  │          │  │ Threads · Pins    │
+       └──────────┘  └──────────┘  └──────────┘  └───────────────────┘
+
+                         ▲ Sentry-compatible DSN (errors/exceptions)
+                         │  HIAI_OBSERVE_SENTRY_DSN
+                         │
+                  ┌──────┴──────────────────────────┐
+                  │         hiai-observe            │
+                  │   Unified observability plane   │
+                  │  (errors · uptime · metrics ·   │
+                  │   logs · AI cost · alerts)      │
+                  └─────────────────────────────────┘
 ```
 
 ---
@@ -87,7 +105,7 @@ hiai-post is a multi-tenant social media content planning and publishing platfor
 | Module | Directory | Responsibility |
 |--------|-----------|----------------|
 | **API Routes** | `api/routes/` | HTTP request handlers, validation, response formatting |
-| **Middleware** | `api/middleware/` | Auth, rate limiting, tenant scoping, security headers, logging |
+| **Middleware** | `api/middleware/` | Auth, rate limiting, tenant scoping, security headers, audit logging (`audit.ts`), access logging |
 | **Publisher** | `core/publisher/` | Platform-specific publishing adapters |
 | **Scheduler** | `core/scheduler/` | Redis queue, cron-based poller, retry logic |
 | **Analytics** | `core/analytics/` | Engagement metrics aggregation from platform APIs |
@@ -406,7 +424,7 @@ content-generate workflow:
 | System | Pattern | Protocol |
 |--------|---------|----------|
 | **hiai-admin** | REST API calls | HTTP/JSON |
-| **hiai-store** | Event-driven (webhooks) | HTTP/JSON |
+| **hiai-store** | Event-driven (webhooks) | HTTP/JSON + `X-Webhook-Secret` HMAC header |
 | **hiai-observe** | Error reporting | Sentry-compatible DSN |
 | **MinIO** | Object storage | S3-compatible API |
 
@@ -422,6 +440,72 @@ event: error              → { postId, error }
 ```
 
 Heartbeat every 30 seconds. Clients disconnected after 90 seconds without response.
+
+### hiai-store → hiai-post Webhook Integration
+
+hiai-store pushes new-product events into hiai-post over a single inbound
+webhook. The receiver creates a `draft` post so the merchant can review,
+edit, and schedule from the existing Post Editor without re-keying product
+data. hiai-post does **not** poll hiai-store.
+
+```
+┌──────────────────────┐    POST /api/v1/webhooks/store-product     ┌──────────────────────┐
+│      hiai-store      │ ─────────────────────────────────────────▶ │  hiai-post          │
+│                      │    X-Webhook-Secret: <HIAI_STORE_…>        │  webhooksRoutes     │
+│ product.created /    │    body: { tenantId, productId,           │                      │
+│ product.updated      │            productName, productUrl,        │  1. Verify secret    │
+│                      │            productImage?, platform }       │     (timingSafeEqual)│
+│                      │                                            │  2. Zod-validate     │
+│                      │                                            │  3. Hash             │
+│                      │                                            │     (tenantId,       │
+│                      │                                            │      productId,      │
+│                      │                                            │      platform)       │
+│                      │                                            │  4. Dedup lookup on  │
+│                      │                                            │     posts.contentHash│
+│                      │                                            │  5. INSERT draft     │
+│                      │ ◀──────────────────────────────────────── │     with mediaUrls = │
+│                      │    201 { post }  /  200 { deduplicated }  │     [productImage?]  │
+└──────────────────────┘                                            └──────────────────────┘
+```
+
+Properties:
+- **Auth**: `X-Webhook-Secret` header compared in constant time against
+  `HIAI_STORE_WEBHOOK_SECRET`. No user `Authorization` header is required.
+- **Idempotency**: `SHA-256(tenantId:productId:platform).slice(0,16)` is
+  stored in `posts.content_hash`. Re-deliveries return the original post.
+- **Failure isolation**: webhook is registered **outside** the
+  auth/tenant/rate-limit middleware stack — it cannot be throttled by
+  per-tenant limits.
+- **Audit trail**: every successful webhook INSERT is captured by the
+  audit middleware (`POST /api/v1/webhooks/store-product`,
+  `resource_id = post.id`).
+
+### Audit Middleware
+
+`backend/src/api/middleware/audit.ts` is registered globally inside the
+protected app, **after** `auth` and `tenant` so it can read `ctx.user.id`
+and `ctx.tenantId`. It hooks `onAfterHandle` and only writes when:
+
+1. The HTTP method is `POST`, `PUT`, `PATCH`, or `DELETE`.
+2. The final response status is `< 400`.
+
+Captured columns (mapped to `audit_logs`):
+
+| Column | Source |
+|--------|--------|
+| `tenant_id` | `ctx.tenantId` (tenant middleware) |
+| `actor_id`  | `ctx.user.id` (auth middleware) |
+| `action`    | HTTP method upper-cased |
+| `resource`  | request path (e.g. `/api/v1/posts/:id`) |
+| `resource_id` | last path segment if it looks like a UUID or opaque id |
+| `metadata`  | sanitized body summary + query + status + content-type |
+| `ip_address` | first `X-Forwarded-For` entry, else `X-Real-IP` |
+
+Sensitive keys (`password`, `token`, `access_token`, `refresh_token`,
+`authorization`, `secret`, `api_key`, `private_key`, `signature`,
+`cookie`, `set-cookie`) are redacted to `[redacted]` before storage;
+string bodies are truncated at 500 chars. Audit writes are best-effort:
+a DB failure is logged via pino but never breaks the user request.
 
 ---
 

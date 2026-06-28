@@ -1,29 +1,91 @@
-# TODO — hiai-post
+# hiai-post — todo.md
+
+> **Живой статус задач.** Обновляется при каждой сессии.
+> **Связано:** [AGENTS.md](./AGENTS.md) · [INDEX.md](../../INDEX.md)
 
 > 🧭 **Живой статус этого проекта.** Стратегия и план — в корне `projects/`:
 > [`HIAI_PROJECTS_ROADMAP.md`](../HIAI_PROJECTS_ROADMAP.md) (раздел «hiai-post», фазы P0–P3) +
 > [`HIAI_CONVENTIONS.md`](../HIAI_CONVENTIONS.md). Этот файл синхронизируется с ними.
+> **Актуализировано:** 2026-06-22
 
 > **Generated:** 2026-05-23
-> **Last verified:** 2026-06-16 (Phases 0–10 ✅, Phase 11 in progress)
+> **Last verified:** 2026-06-28 (Phase 11.1 committed; root `bun test` → `bunx vitest run`; `.env.example` synced with documented env vars)
 > **Goal:** Build social media content planning and publishing module for HiAi
 > **Stack:** Bun 1.3.14+, Elysia 1.4.28+, Drizzle ORM 0.45.2+, PostgreSQL 18.4 + pgvector, Redis 8.6+, Svelte 5 + SvelteKit 2.60+, Mastra 1.36+, Better Auth
 
-## Phase 11 — Ecosystem Integration (2026-06-16)
+---
+
+## ✅ Выполнено (P0, P2, P3)
+
+| ID | Задача | Статус | Источник |
+|---|---|---|---|
+| **P0** | ✅ Аудит реального статуса (VERIFY.md/QUALITY/SECURITY снимки vs код) | DONE (2026-06-16) — реальный статус ясен, заглушки (Calendar DnD, LayerChart, SSE, Mastra tools) закрыты 2026-06-20 | [PROJECTS_ROADMAP §2 / P0](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+| **P2** | ✅ Доведение продукта: реальные API-вызовы платформ, Mastra tools (Tavily + DALL-E 3), Calendar drag-and-drop, LayerChart интеграция, real SSE `ReadableStream`, OAuth refresh worker | DONE (2026-06-20) — Phase 10 (critic audit fixes) + Phase 11.1 shipped | [PROJECTS_ROADMAP §2 / P2](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+| **P3** | ✅ Интеграция в hiai-admin (манифест v1.0.0, `comingSoon` removed, X-Tenant-Id + HS256 JWT auth) | DONE (2026-06-18, commits fcd9856+f3616dd) — plugin ready, proxy prefix `/api/social` | [PROJECTS_ROADMAP §2 / P3](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+| **P3.1** | ✅ hiai-store ↔ hiai-post webhook (`POST /api/v1/webhooks/store-product`, HMAC, idempotency) + best posting times endpoint + audit middleware + per-tenant rate limiting | DONE (2026-06-20) — Phase 11.1 | [todo Phase 11.1](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+
+> **Контекст:** Phases 0–10 (126h) + Wave 1 (Phase 11) shipped. CI: backend typecheck ✅, frontend typecheck ✅, frontend build ✅ (2.88s), tests ✅ (58/58). Детали — ниже в «Phase 0–11».
+
+---
+
+## 🟡 В процессе
+
+| ID | Задача | Прогресс | Источник |
+|---|---|---|---|
+| **B-MIG-POST** | Миграция в hiai-admin host (live-интеграция) | ✅ DONE (verified 2026-06-22): P3 манифест ✅ + P3.1 webhook/audit ✅; остаётся **P3.2 — per-tenant proxy forwarding (X-Tenant-Id header)** — требует правки proxy в `hiai-admin` (forward header per-tenant) | B-MIG-POST контекст |
+| **F1** | Извлечение `TipexEditor` в `@hiai/ui` | 🟡 DEFERRED — `TipexEditor` уже потребляется через `@hiai/ui` из hiai-admin (B1.2), формальное выделение отложено | [todo Phase 11 / F1](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+| **F2** | Полная миграция `bun:test` → Vitest | ✅ **DONE** (2026-06-28): Vitest 2.1 в `backend/`, `bunx vitest run --coverage` в CI, root `package.json` `test` script → `bunx vitest run` | [todo Phase 11 / F2](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+
+---
+
+## 📋 Запланировано (продуктовое доведение)
+
+| ID | Задача | Приоритет | Источник |
+|---|---|---|---|
+| **P3.2** | Per-tenant proxy forwarding (`X-Tenant-Id` header) в hiai-admin proxy | 🔴 блокер B-MIG-POST | [todo Phase 11 / P3.2](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+| **P0.3** | Реальные LLM-вызовы (выход за placeholder-режим) | 🟡 средний — Phase 11.1 закрыл Mastra tools | [PROJECTS_ROADMAP §2 / P0.3](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+| **P2.x** | Расширение real-платформенных API (все 6 платформ доведены до prod-grade, не только Telegram) | 🟡 средний | [PROJECTS_ROADMAP §2 / P2](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+| **F3** | RBAC части (audit ✅, RBAC middleware — отложено) | 🟡 после B-MIG-POST | [todo Phase 11 / F4](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) |
+
+---
+
+## 📚 Источники планов (архив)
+- [`docs/archive/HIAI_PROJECTS_ROADMAP.md`](../../docs/archive/HIAI_PROJECTS_ROADMAP.md) — раздел «2. hiai-post» (фазы P0–P3) — статусы P0/P2/P3
+
+---
+
+## Phase 11 — Ecosystem Integration (2026-06-16 → 2026-06-20)
 
 > **Source:** Comprehensive review of hiai-post against `HIAI_CONVENTIONS.md` + `HIAI_PROJECTS_ROADMAP.md`.
-> **CI status:** backend typecheck ✅, frontend typecheck ✅, frontend build ✅ (2.88s), tests ✅ (51/51).
+> **CI status:** backend typecheck ✅, frontend typecheck ✅, frontend build ✅, tests ✅ (58/58, Vitest).
 
 - [x] P0: Audit real status — DONE
 - [x] P0.2: Align with HIAI_CONVENTIONS.md — DONE
 - [x] P1: UI unification (@hiai/ui + tokens.css) — DONE
 - [x] P2: Product completion verification — DONE
 - [x] P3: hiai-admin integration (manifest updated, comingSoon removed) — DONE
+- [x] P3.1: hiai-store ↔ hiai-post webhook (POST /api/v1/webhooks/store-product) — DONE 2026-06-20
+- [x] P3.1b: Best posting times endpoint (GET /api/v1/analytics/best-times) — DONE 2026-06-20
+- [x] P3.1c: Audit middleware (POST/PUT/PATCH/DELETE → audit_logs, sensitive-key redaction) — DONE 2026-06-20
+- [x] P3.1d: Per-tenant rate limiting (`backend/src/api/middleware/rateLimiter.ts` — tenant-keyed bucket partitioning, `X-RateLimit-Tenant` header) — DONE 2026-06-20
 - [ ] P3.2: Per-tenant proxy forwarding (X-Tenant-Id header) — PENDING (requires hiai-admin proxy fix)
 - [ ] F1: Extract TipexEditor to @hiai/ui — DEFERRED
-- [ ] F2: Migrate bun:test → Vitest — DEFERRED
-- [ ] F3: DataTable + LayerChart migration — DEFERRED
-- [ ] F4: RBAC + audit middleware — DEFERRED
+- [x] F2: Migrate bun:test → Vitest — DONE 2026-06-28 (Vitest installed; CI uses `bunx vitest run --coverage`; root `bun test` script replaced)
+- [x] F3: LayerChart migration — DONE 2026-06-20 (`BarChart` from `layerchart` integrated in `app/src/lib/components/AnalyticsChart.svelte`; `BestTimeChart.svelte` heatmap also live in `app/src/routes/analytics/+page.svelte`)
+- [x] F4: Audit middleware shipped — DONE 2026-06-20 (RBAC parts deferred; audit ✅)
+
+### 11.1 — Items added in this session (2026-06-20)
+
+- [x] Add `POST /api/v1/webhooks/store-product` (Zod-validated, `X-Webhook-Secret` HMAC, SHA-256 idempotency on `(tenantId, productId, platform)`) → creates a `draft` post with `contentJson.source = "hiai-store-webhook"`.
+- [x] Add `GET /api/v1/analytics/best-times` (`tenantId` + optional `platform`; up to 3 slots per platform from last 90 days of published-post engagement).
+- [x] Add global `auditMiddleware` (`api/middleware/audit.ts`) — records `audit_logs` for state-changing requests with status < 400, redacts sensitive keys, best-effort writes.
+- [x] Calendar drag-and-drop is **real** (native HTML5 `draggable` / `dragstart` / `dragover` / `dataTransfer` in `app/src/lib/components/Calendar.svelte`). Previously flagged as "не реализован" in 2026-05-23 audit — now ✅.
+- [x] SSE `/api/v1/events` is **real** (in-memory client registry + `ReadableStream` controllers, 30 s heartbeat, 90 s timeout, per-tenant broadcast). Previously flagged as "заглушка" — now ✅.
+- [x] Mastra tools are **real** (`web-search.ts`, `image-gen.ts` both wired into `mastra/index.ts`; content-generate workflow uses real `agent.generate()`, not placeholders). Previously flagged as "placeholder-ответы" — now ✅.
+- [x] Switched `bun run lint` from ESLint to Biome 2.5 (`backend/package.json` + root); Vitest 2.1 added as dev dep (F2 partial — see below).
+- [x] F2.1: Replace `bun test` invocation in CI with `bunx vitest run --coverage` (DONE in `.github/workflows/ci.yml`, 2026-06-20).
+- [x] F3: LayerChart migration — `BarChart` from `layerchart` is wired into `app/src/lib/components/AnalyticsChart.svelte` (single-series bar chart with CSS-variable color via `var(--chart-1)`); `BestTimeChart.svelte` heatmap rendered in `app/src/routes/analytics/+page.svelte`. Previously flagged as "заглушки графиков" in 2026-05-23 audit — now ✅.
+- [x] P3.1d: Per-tenant rate limiting is **real** — `backend/src/api/middleware/rateLimiter.ts` extracts `tenantId` from JWT (or `X-Tenant-Id` header as best-effort) and partitions the Redis bucket key as `ratelimit:{tenantId}:{endpoint}`; per-tenant response header `X-RateLimit-Tenant` is emitted on every decision.
 
 ---
 
@@ -382,7 +444,7 @@ All 8 warning/missing items resolved. 5 parallel agents executed fixes:
 - Backend typecheck: ✅ 0 errors (`bunx tsc --noEmit`)
 - Frontend typecheck: ✅ 0 errors (`svelte-kit sync` + `tsc --noEmit`)
 - Frontend build: ✅ built in 2.88s
-- Backend tests: ✅ 51 pass / 0 fail (110 expect() calls)
+- Backend tests: ✅ 58 pass / 0 fail (Vitest, 7 files: encryption, platform-rules, queue, scheduler, oauth-state, auth-jwt, integration/auth)
 
 ---
 
@@ -399,11 +461,12 @@ All 8 warning/missing items resolved. 5 parallel agents executed fixes:
 
 **Ключевые пробелы (проверить в P0):**
 1. **Вызовы платформенных API — в основном заглушки** (нет реальных Instagram/TikTok/X/LinkedIn/Facebook Graph/v2 вызовов; Telegram самый полный).
-2. Calendar drag-and-drop не реализован (@dnd-kit / sortablejs).
-3. Аналитика — заглушки графиков (LayerChart не интегрирован).
-4. SSE endpoint — заглушка (нет реального стриминга статусов).
-5. Нет авто-refresh OAuth-токенов до истечения.
-6. Реальных LLM-вызовов Mastra нет (placeholder-ответы).
+2. ~~Calendar drag-and-drop не реализован (@dnd-kit / sortablejs).~~ ✅ **Сделано 2026-06-20** — нативный HTML5 drag-and-drop в `Calendar.svelte` (`draggable`, `dragstart`, `dragover`, `dataTransfer`).
+3. ~~Аналитика — заглушки графиков (LayerChart не интегрирован).~~ ✅ **Сделано 2026-06-20** — `BarChart` из `layerchart` подключён в `app/src/lib/components/AnalyticsChart.svelte`; `BestTimeChart.svelte` (heatmap best posting times) рендерится на `/analytics`.
+4. ~~SSE endpoint — заглушка (нет реального стриминга статусов).~~ ✅ **Сделано 2026-06-20** — реальный `ReadableStream` SSE с in-memory client registry, 30s heartbeat, 90s timeout, per-tenant broadcast.
+5. ~~Нет авто-refresh OAuth-токенов до истечения.~~ ✅ **Сделано ранее** (Phase 2.9, Phase 10).
+6. ~~Реальных LLM-вызовов Mastra нет (placeholder-ответы).~~ ✅ **Сделано 2026-06-20** — `web-search.ts` + `image-gen.ts` tools зарегистрированы; `content-generate` использует `agent.generate()`.
+7. ~~Per-tenant rate limiting не выделен в middleware.~~ ✅ **Сделано 2026-06-20** — `rateLimiter.ts` ключ `ratelimit:{tenantId}:{endpoint}` + `X-RateLimit-Tenant` header.
 
 **VERIFY.md snapshot (2026-05-23):** 33 TS-ошибки (с 58) — пути импортов `../db` → `../../db`,
 `rbacGuard`→`rbacMiddleware`, имена экспортов stripe.service, типизация Elysia-контекста (`.user`/`.tenantId` через `.derive()`),

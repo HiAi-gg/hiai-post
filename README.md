@@ -16,6 +16,8 @@ bun run dev
 
 **Health check:** `curl -fsS http://localhost:50300/api/v1/health`
 
+**Run tests:** `cd backend && npx vitest run` (58 tests, Vitest config at `backend/vitest.config.ts`)
+
 ---
 
 ## Tech Stack
@@ -71,13 +73,21 @@ bun run dev
 
 **Multi-tenant isolation:** Every table has `tenant_id`. Queries scope by authenticated tenant context.
 
+**Auth:** Better Auth is mounted at `/api/auth` as an Elysia sub-app (`authRoutes`). The `auth` middleware verifies either an HS256 admin JWT (shared with hiai-admin proxy) or a Better Auth session token.
+
+**Rate limiting:** Per-tenant Redis-backed (`ratelimit:{tenantId}:{endpoint}`) with dual-bucket fallback (global IP-based when no tenant context is available).
+
+**Audit logging:** `audit.ts` middleware captures state-changing operations (POST/PUT/PATCH/DELETE) and writes to the `audit_logs` table after successful handler completion — never on validation/auth errors.
+
+**Docker networking:** Services join both the `hiai-post` bridge network and the shared `docker_ai-internal` external network for cross-service communication (hiai-admin, hiai-store, etc.).
+
 ---
 
 ## Key Features
 
 - **AI Content Generation** — Mastra workflows generate platform-native posts from a single topic input
 - **Multi-platform Publishing** — Instagram, TikTok, X, LinkedIn, Facebook, Telegram, Threads, Pinterest, YouTube (Shorts + Long), Blog from one interface
-- **Content Calendar** — Drag-and-drop scheduling with timezone-aware publishing
+- **Content Calendar** — Drag-and-drop scheduling with month, week, and day views, timezone-aware
 - **Post Editor** — Tipex rich text editor with inline AI generation and media upload
 - **Queue Management** — Redis-based scheduler with retry, backoff, and dead letter queue
 - **Analytics Dashboard** — Engagement metrics, reach, impressions, CTR per post and platform
@@ -118,24 +128,29 @@ bun run dev
           campaigns.ts      # Campaign management
           templates.ts      # PostTemplate CRUD
           analytics.ts      # Engagement metrics aggregation
+          webhooks.ts       # hiai-store product → draft post webhook
           oauth.ts          # Multi-platform OAuth 2.0 flows
           youtube.ts        # YouTube-specific OAuth + upload
           generate.ts       # AI content generation endpoints
           queue.ts          # Publish queue management
           events.ts         # SSE real-time event stream
           health.ts         # Health check endpoint
+          auth.ts           # Better Auth delegation handler at /api/auth
         /middleware
-          auth.ts           # Better Auth + JWT verification
-          rateLimiter.ts    # Redis-backed rate limiting
+          auth.ts           # Better Auth + JWT verification (supports HS256 admin bridge)
+          rateLimiter.ts    # Per-tenant Redis-backed rate limiting (dual-bucket fallback)
           tenant.ts         # Multi-tenant scoping
           secureHeaders.ts  # HTTP security headers
           apiLogger.ts      # Request/response logging
+          audit.ts          # Audit logging for state-changing operations (POST/PUT/PATCH/DELETE)
         /validation
           schemas.ts        # Zod validation schemas
       /core                # Business logic
         /scheduler         # Redis queue publisher + cron
         /publisher         # Platform-specific publishing adapters
         /analytics         # Metrics aggregation
+        /events
+          store-listener.ts # Redis pub/sub scaffold for future hiai-store stream (NOT wired — use HTTP webhook)
       /db                  # Drizzle schemas + migrations
         schema.ts          # All table definitions
         index.ts           # DB client
@@ -148,6 +163,8 @@ bun run dev
         /facebook          # Facebook Graph API client
         /telegram          # Telegram Bot API client
         /youtube           # YouTube Data API v3 client
+      /auth                # Better Auth instance (module-init)
+        index.ts           # betterAuth() with Drizzle adapter, email/password, session config
       /mastra              # AI workflows
         /workflows
           content-generate.ts   # Full content pipeline
@@ -157,8 +174,8 @@ bun run dev
           writer.ts         # Content writer agent
           optimizer.ts      # Post optimizer agent
         /tools
-          web-search.ts     # Trend research
-          image-gen.ts      # Image generation
+          web-search.ts     # Real Tavily API for trend research (not a placeholder)
+          image-gen.ts      # Real DALL·E 3 API for image generation (falls back to placehold.co)
         index.ts            # Mastra instance
       /lib                 # Shared utilities
         config.ts           # Environment config (Zod)
@@ -179,7 +196,8 @@ bun run dev
   /app                    # SvelteKit frontend
     /src
       /routes
-        /dashboard         # Overview + calendar
+        +error.svelte      # Global error boundary (catches 4xx/5xx)
+        /dashboard         # Overview + calendar + summary stats cards
         /posts             # Post list + editor
         /content-plans     # Content plan management
         /accounts          # Social account connections
@@ -187,10 +205,11 @@ bun run dev
         /templates         # Template management
       /lib
         /components
-          Calendar.svelte       # Drag-and-drop calendar
+          Calendar.svelte       # Drag-and-drop calendar (month + week + day views)
           PostEditor.svelte     # Tipex + AI panel
           PlatformCard.svelte   # Social account card
           AnalyticsChart.svelte # LayerChart wrapper
+          BestTimeChart.svelte  # Heatmap chart for best posting times
         /stores
           posts.svelte.ts       # Post state management
           accounts.svelte.ts    # Account state
@@ -264,11 +283,13 @@ PostgreSQL 18.4 with pgvector extension. Database: `hiai_post`.
 | `POST` | `/api/v1/templates` | Create template |
 | `PUT` | `/api/v1/templates/:id` | Update template |
 | `DELETE` | `/api/v1/templates/:id` | Delete template |
+| `POST` | `/api/v1/webhooks/store-product` | Incoming webhook from hiai-store (product → draft post) |
 | `GET` | `/api/v1/analytics/overview` | Aggregated analytics |
 | `GET` | `/api/v1/analytics/platforms` | Platform breakdown |
 | `GET` | `/api/v1/analytics/posts/:postId` | Per-post metrics |
 | `GET` | `/api/v1/analytics/top-posts` | Top performing posts |
 | `GET` | `/api/v1/analytics/cross-platform` | Cross-platform comparison |
+| `GET` | `/api/v1/analytics/best-times` | Best posting time recommendations |
 | `GET` | `/api/v1/oauth/:platform/connect` | Start OAuth flow |
 | `GET` | `/api/v1/oauth/:platform/callback` | OAuth callback |
 | `GET` | `/api/v1/youtube/connect` | YouTube OAuth connect |
@@ -295,6 +316,7 @@ REDIS_URL=redis://localhost:6383
 # Auth
 BETTER_AUTH_SECRET=change-me-to-a-random-32-char-string-min
 BETTER_AUTH_URL=http://localhost:50300
+HIAI_ADMIN_JWT_SECRET=  # HS256 shared secret for hiai-admin proxy cross-service auth
 
 # Encryption (AES-256-GCM)
 TOKEN_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
@@ -320,6 +342,7 @@ TELEGRAM_BOT_TOKEN=
 
 # Mastra / LLM
 OPENROUTER_API_KEY=
+OPENAI_API_KEY=  # Required for DALL·E 3 image generation (image-gen.ts)
 MASTRA_MODEL=openai/gpt-4o
 
 # Storage (shared MinIO)
@@ -333,6 +356,12 @@ MINIO_USE_SSL=false
 # Ports
 API_PORT=50300
 FRONTEND_PORT=50301
+
+# Webhook (hiai-store integration)
+HIAI_STORE_WEBHOOK_SECRET=  # Shared secret for incoming store-product webhooks
+
+# Error tracking
+SENTRY_DSN=  # Sentry-compatible DSN (via hiai-observe)
 
 # Environment
 NODE_ENV=development
@@ -348,9 +377,9 @@ NODE_ENV=development
 | `bun run dev:api` | Start API dev server (port 50300) |
 | `bun run dev:frontend` | Start SvelteKit dev server (port 50301) |
 | `bun run build` | Build all workspaces |
-| `bun run lint` | Run ESLint across all workspaces |
+| `bun run lint` | Run Biome check across all workspaces |
 | `bun run typecheck` | Run TypeScript type checking |
-| `bun run test` | Run all tests |
+| `bun run test` | Run all tests (Vitest — config at `backend/vitest.config.ts`) |
 | `bun run db:generate` | Generate Drizzle migration |
 | `bun run db:migrate` | Run Drizzle migrations |
 | `bun run db:push` | Push schema changes (dev only) |
