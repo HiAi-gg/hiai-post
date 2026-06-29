@@ -36,11 +36,16 @@ services:
       - docker_ai-internal
 
   hiai-post-frontend:
+    # For OSS users: @hiai/ui is installed from npm
+    # ("npm:@hiai-gg/hiai-ui"), so the additional_contexts below is not
+    # needed. The HOST_PACKAGES_DIR override is only used by internal
+    # monorepo dev setups that build @hiai/ui from a sibling packages/
+    # directory; leave it unset for a standalone install.
     build:
       context: .
       dockerfile: app/Dockerfile
       additional_contexts:
-        - packages_host=/mnt/ai_data/packages
+        - packages_host=${HOST_PACKAGES_DIR:-}
     container_name: hiai-post-frontend
     ports:
       - "50301:3000"

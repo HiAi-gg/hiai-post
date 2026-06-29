@@ -11,7 +11,7 @@ async function seed() {
     .values({
       slug: "demo-store",
       name: "Demo Store",
-      email: "demo@hiai.store",
+      email: "demo@example.com",
       settings: { theme: "light", currency: "USD" },
     } as any)
     .onConflictDoNothing()

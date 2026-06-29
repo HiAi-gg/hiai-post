@@ -1,4 +1,5 @@
 # Internal planning / audit files (not for open-source)
+.bob/
 todo.md
 AGENTS.md
 AGENTS.md.bak

@@ -2,6 +2,17 @@
 
 Social media content planning and publishing module for the HiAi platform — AI-powered content generation, multi-platform scheduling, and analytics for merchant stores.
 
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/HiAi-gg/hiai-post?sort=semver)](https://github.com/HiAi-gg/hiai-post/releases)
+[![Stars](https://img.shields.io/github/stars/HiAi-gg/hiai-post)](https://github.com/HiAi-gg/hiai-post/stargazers)
+[![CI](https://github.com/HiAi-gg/hiai-post/actions/workflows/ci.yml/badge.svg)](https://github.com/HiAi-gg/hiai-post/actions/workflows/ci.yml)
+[![Bun](https://img.shields.io/badge/Runtime-Bun_1.3-black?logo=bun&logoColor=white)](https://bun.sh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Svelte](https://img.shields.io/badge/Svelte-5.x-FF3E00?logo=svelte&logoColor=white)](https://svelte.dev)
+[![Elysia](https://img.shields.io/badge/Elysia-1.4-lightgrey?logo=elysia&logoColor=white)](https://elysiajs.com)
+[![Drizzle_ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?logo=drizzle&logoColor=black)](https://orm.drizzle.team)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 ---
 
 ## Quick Start
@@ -391,6 +402,6 @@ NODE_ENV=development
 
 | Project | Relationship |
 |---------|-------------|
-| [hiai-admin](https://github.com/hiailabs/hiai-admin) | Platform admin manages post module settings and tenant access |
-| [hiai-store](https://github.com/hiailabs/hiai-store) | Auto-publish new products and promotions to social channels |
-| [hiai-observe](https://github.com/hiailabs/hiai-observe) | Error tracking, uptime monitoring, and observability |
+| [hiai-admin](https://github.com/HiAi-gg/hiai-admin) | Platform admin manages post module settings and tenant access |
+| [hiai-store](https://github.com/HiAi-gg/hiai-store) | Auto-publish new products and promotions to social channels |
+| [hiai-observe](https://github.com/HiAi-gg/hiai-observe) | Error tracking, uptime monitoring, and observability |

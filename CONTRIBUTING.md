@@ -11,7 +11,7 @@
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/hiailabs/hiai-post.git
+git clone https://github.com/HiAi-gg/hiai-post.git
 cd hiai-post
 
 # 2. Install dependencies (workspace root)
