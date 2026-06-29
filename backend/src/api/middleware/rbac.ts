@@ -24,10 +24,10 @@
  * with a 60s TTL. Out of scope for the initial POC.
  */
 
-import { Elysia } from "elysia";
 import { and, eq } from "drizzle-orm";
+import { Elysia } from "elysia";
+import { type TenantRole, tenantMembers } from "../../db/schema.js";
 import { db } from "../../lib/db.js";
-import { tenantMembers, type TenantRole } from "../../db/schema.js";
 import { logger } from "../../lib/logger.js";
 
 export type Role = TenantRole;
@@ -72,10 +72,7 @@ export interface RbacCheckInput {
  * Pure RBAC check — does the DB lookup, returns the outcome.
  * Side effects: one DB select per call (fail-closed on DB error).
  */
-export async function checkRbac(
-  input: RbacCheckInput,
-  required: Role,
-): Promise<RbacOutcome> {
+export async function checkRbac(input: RbacCheckInput, required: Role): Promise<RbacOutcome> {
   const { tenantId, user } = input;
   const userId = user?.id;
 
@@ -90,12 +87,7 @@ export async function checkRbac(
     const rows = await db
       .select({ role: tenantMembers.role })
       .from(tenantMembers)
-      .where(
-        and(
-          eq(tenantMembers.tenantId, tenantId),
-          eq(tenantMembers.userId, userId),
-        ),
-      )
+      .where(and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.userId, userId)))
       .limit(1);
     role = (rows[0]?.role as Role | undefined) ?? null;
   } catch (err) {
@@ -143,24 +135,20 @@ export async function checkRbac(
  * `tenantMiddleware` — it depends on `ctx.user` and `ctx.tenantId`.
  */
 export function rbacMiddleware(options: RbacOptions) {
-  return new Elysia({ name: `rbac-${options.required}` })
-    .onBeforeHandle(async (ctx) => {
-      const outcome = await checkRbac(
-        ctx as RbacCheckInput,
-        options.required,
-      );
+  return new Elysia({ name: `rbac-${options.required}` }).onBeforeHandle(async (ctx) => {
+    const outcome = await checkRbac(ctx as RbacCheckInput, options.required);
 
-      if (!outcome.ok) {
-        ctx.set.status = outcome.status;
-        return outcome.body;
-      }
+    if (!outcome.ok) {
+      ctx.set.status = outcome.status;
+      return outcome.body;
+    }
 
-      // Bypass path — no role to stash.
-      if ("bypass" in outcome) return;
+    // Bypass path — no role to stash.
+    if ("bypass" in outcome) return;
 
-      // Stash resolved role on context for downstream handlers.
-      (ctx as { role?: Role }).role = outcome.role;
-    });
+    // Stash resolved role on context for downstream handlers.
+    (ctx as { role?: Role }).role = outcome.role;
+  });
 }
 
 // Convenience presets — share a role tier across multiple routes.
@@ -168,4 +156,3 @@ export const requireViewer = () => rbacMiddleware({ required: "viewer" });
 export const requireEditor = () => rbacMiddleware({ required: "editor" });
 export const requireAdmin = () => rbacMiddleware({ required: "admin" });
 export const requireOwner = () => rbacMiddleware({ required: "owner" });
-

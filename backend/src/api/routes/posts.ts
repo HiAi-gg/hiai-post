@@ -6,8 +6,8 @@ import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
 import { enqueuePost, removeQueuedPost } from "../../lib/redis.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { requireAdmin, requireEditor, requireViewer } from "../middleware/rbac.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { requireAdmin, requireEditor, requireViewer } from "../middleware/rbac.js";
 import { tenantMiddleware } from "../middleware/tenant.js";
 import {
   createPostSchema,

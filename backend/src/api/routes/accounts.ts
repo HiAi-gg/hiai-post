@@ -4,8 +4,8 @@ import { socialAccounts } from "../../db/schema.js";
 import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { requireAdmin, requireViewer } from "../middleware/rbac.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { requireAdmin, requireViewer } from "../middleware/rbac.js";
 import { tenantMiddleware } from "../middleware/tenant.js";
 
 const _log = logger.child({ module: "accounts-route" });

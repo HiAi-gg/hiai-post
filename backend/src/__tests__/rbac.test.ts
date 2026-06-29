@@ -42,7 +42,7 @@ vi.mock("../../lib/logger.js", () => {
   return { logger: pinoLogger };
 });
 
-const { hasAtLeast, checkRbac } = await import("../middleware/rbac.js");
+const { hasAtLeast, checkRbac } = await import("../api/middleware/rbac.js");
 
 // --- Tests -----------------------------------------------------------------
 
@@ -142,4 +142,3 @@ describe("rbac — success path", () => {
     expect(failOut.ok).toBe(false);
   });
 });
-

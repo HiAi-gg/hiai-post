@@ -177,12 +177,8 @@ export const postAnalytics = pgTable(
 // do inside that tenant (see backend/src/api/middleware/rbac.ts).
 // The role enum is intentionally small — owner > admin > editor > viewer.
 // Tenant creation should always insert an 'owner' row for the creator.
-export const tenantRole = pgEnum("tenant_role", [
-  "viewer",
-  "editor",
-  "admin",
-  "owner",
-]);
+export const tenantRole = pgEnum("tenant_role", ["viewer", "editor", "admin", "owner"]);
+export type TenantRole = (typeof tenantRole.enumValues)[number];
 
 export const tenantMembers = pgTable(
   "tenant_members",
