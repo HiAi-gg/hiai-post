@@ -10,11 +10,21 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Set required env vars BEFORE the dynamic import. rbac.ts transitively
+// pulls in db.ts -> logger.ts -> getConfig(); without these, config.ts
+// calls process.exit(1) and the suite fails to load.
+process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/test";
+process.env.BETTER_AUTH_SECRET ??= "test-secret-key-min-32-characters-long";
+process.env.TOKEN_ENCRYPTION_KEY ??=
+  "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+process.env.MINIO_SECRET_KEY ??= "test-minio-secret";
+process.env.HIAI_ADMIN_JWT_SECRET ??= "shared-admin-jwt-secret-32chars-please";
+
 // --- Mocks -----------------------------------------------------------------
 
 const dbState: { rows: Array<{ role: string }> } = { rows: [] };
 
-vi.mock("../../lib/db.js", () => ({
+vi.mock("../lib/db.js", () => ({
   db: {
     select: () => ({
       from: () => ({
@@ -26,7 +36,7 @@ vi.mock("../../lib/db.js", () => ({
   },
 }));
 
-vi.mock("../../lib/logger.js", () => {
+vi.mock("../lib/logger.js", () => {
   const childLogger = {
     warn: () => {},
     error: () => {},

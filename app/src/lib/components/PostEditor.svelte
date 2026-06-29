@@ -1,6 +1,6 @@
 <script lang="ts">
+import { type EditorOutput, HiAiEditor } from "@hiai/ui";
 import { platformBrandColors } from "../platform-brand-colors";
-import { HiAiEditor, type EditorOutput } from "@hiai/ui";
 
 interface Props {
   content?: string;
