@@ -356,14 +356,6 @@ OPENROUTER_API_KEY=
 OPENAI_API_KEY=  # Required for DALL·E 3 image generation (image-gen.ts)
 MASTRA_MODEL=openai/gpt-4o
 
-# Storage (shared MinIO)
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9010
-MINIO_ACCESS_KEY=admin
-MINIO_SECRET_KEY=your-minio-secret-key
-MINIO_BUCKET=hiai-post
-MINIO_USE_SSL=false
-
 # Ports
 API_PORT=50300
 FRONTEND_PORT=50301

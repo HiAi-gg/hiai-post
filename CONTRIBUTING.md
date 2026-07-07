@@ -4,7 +4,7 @@
 
 ### Prerequisites
 - **Bun 1.3.14+** (required — do not use npm or yarn)
-- **Docker + Docker Compose** (for PostgreSQL, Redis, MinIO)
+- **Docker + Docker Compose** (for PostgreSQL, Redis)
 - **Node.js** (not required for development, but `bunx` may use it for some tools)
 
 ### One-time Setup

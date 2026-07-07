@@ -5,14 +5,12 @@ vi.mock("../lib/config.js", () => ({
     DATABASE_URL: "postgresql://test:test@localhost:5432/test",
     BETTER_AUTH_SECRET: "test-secret-key-min-32-characters-long",
     TOKEN_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    MINIO_SECRET_KEY: "test-minio-secret",
     NODE_ENV: "test",
   },
   getConfig: () => ({
     DATABASE_URL: "postgresql://test:test@localhost:5432/test",
     BETTER_AUTH_SECRET: "test-secret-key-min-32-characters-long",
     TOKEN_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-    MINIO_SECRET_KEY: "test-minio-secret",
     NODE_ENV: "test",
   }),
 }));
@@ -38,7 +36,6 @@ beforeAll(() => {
   process.env.BETTER_AUTH_SECRET = "test-secret-key-min-32-characters-long";
   process.env.TOKEN_ENCRYPTION_KEY =
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-  process.env.MINIO_SECRET_KEY = "test-minio-secret";
 });
 
 describe("Encryption", () => {

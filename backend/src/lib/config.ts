@@ -50,14 +50,6 @@ const configSchema = z.object({
   // Web search (Tavily) — optional; web-search tool falls back to empty results when unset
   TAVILY_API_KEY: z.string().default(""),
 
-  // MinIO
-  MINIO_ENDPOINT: z.string().default("localhost"),
-  MINIO_PORT: z.coerce.number().default(9010),
-  MINIO_ACCESS_KEY: z.string().default("admin"),
-  MINIO_SECRET_KEY: z.string(),
-  MINIO_BUCKET: z.string().default("hiai-post"),
-  MINIO_USE_SSL: z.coerce.boolean().default(false),
-
   // Ports
   API_PORT: z.coerce.number().default(50300),
   FRONTEND_PORT: z.coerce.number().default(50301),

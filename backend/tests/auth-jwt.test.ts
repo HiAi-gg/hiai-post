@@ -6,7 +6,6 @@ import { createHmac } from 'node:crypto';
 process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
 process.env.BETTER_AUTH_SECRET ??= 'test-secret-key-min-32-characters-long';
 process.env.TOKEN_ENCRYPTION_KEY ??= '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-process.env.MINIO_SECRET_KEY ??= 'test-minio-secret';
 process.env.HIAI_ADMIN_JWT_SECRET ??= 'shared-admin-jwt-secret-32chars-please';
 
 const { verifyAdminJwt } = await import('../src/api/middleware/auth.js');

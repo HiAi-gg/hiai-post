@@ -70,20 +70,20 @@ hiai-post is a multi-tenant social media content planning and publishing platfor
    │                                                │              │ │
    │  ┌─────────────────────────────────────────────▼──────────────┐ │ │
    │  │                     Data Access Layer                       │ │ │
-   │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────┐ │ │ │
-   │  │  │  Drizzle  │  │  Redis   │  │  MinIO   │  │ Integration│ │ │ │
-   │  │  │  ORM      │  │  Client  │  │  Client  │  │  Clients   │ │ │ │
-   │  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └─────┬──────┘ │ │ │
-   │  └───────┼─────────────┼──────────────┼───────────────┼────────┘ │ │
-   └──────────┼─────────────┼──────────────┼───────────────┼──────────┘
-              │             │              │               │
-              ▼             ▼              ▼               ▼
-       ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────────────┐
-       │PostgreSQL│  │  Redis   │  │  MinIO   │  │   Platform APIs   │
-       │+pgvector │  │ 8.6+     │  │ (Object  │  │ IG · TikTok · X   │
-       │  18.4    │  │          │  │  Store)  │  │ LI · FB · TG · YT │
-       │+audit_log│  │          │  │          │  │ Threads · Pins    │
-       └──────────┘  └──────────┘  └──────────┘  └───────────────────┘
+   │  │  ┌──────────┐  ┌──────────┐  ┌──────────────────────────┐ │ │ │
+   │  │  │  Drizzle  │  │  Redis   │  │    Integration Clients    │ │ │
+   │  │  │  ORM      │  │  Client  │  │   (platform SDKs, etc.)  │ │ │
+   │  │  └────┬─────┘  └────┬─────┘  └───────────┬──────────────┘ │ │ │
+   │  └───────┼─────────────┼────────────────────┼─────────────────┘ │ │
+   └──────────┼─────────────┼────────────────────┼───────────────────┘
+              │             │                    │
+              ▼             ▼                    ▼
+       ┌──────────┐  ┌──────────┐  ┌──────────────────────────────────┐
+       │PostgreSQL│  │  Redis   │  │          Platform APIs            │
+       │+pgvector │  │ 8.6+     │  │  IG · TikTok · X · LI · FB · TG  │
+       │  18.4    │  │          │  │  YT · Threads · Pinterest · Blog  │
+       │+audit_log│  │          │  │                                    │
+       └──────────┘  └──────────┘  └──────────────────────────────────┘
 
                          ▲ Sentry-compatible DSN (errors/exceptions)
                          │  HIAI_OBSERVE_SENTRY_DSN
@@ -426,8 +426,6 @@ content-generate workflow:
 | **hiai-admin** | REST API calls | HTTP/JSON |
 | **hiai-store** | Event-driven (webhooks) | HTTP/JSON + `X-Webhook-Secret` HMAC header |
 | **hiai-observe** | Error reporting | Sentry-compatible DSN |
-| **MinIO** | Object storage | S3-compatible API |
-
 ### SSE Real-time Events
 
 The `events.ts` route provides Server-Sent Events for real-time publish status updates:
