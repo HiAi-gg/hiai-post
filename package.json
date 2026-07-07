@@ -14,7 +14,7 @@
     "lint": "bun run --filter '*' lint",
     "lint:fix": "bun run --filter '*' lint:fix",
     "typecheck": "bun run --filter '*' typecheck",
-    "test": "bunx vitest run",
+    "test": "cd backend && bunx vitest run",
     "db:generate": "cd backend && bun run db:generate",
     "db:migrate": "cd backend && bun run db:migrate",
     "db:push": "cd backend && bun run db:push",
