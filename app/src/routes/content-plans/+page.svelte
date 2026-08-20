@@ -1,7 +1,22 @@
 <script lang="ts">
+import Calendar from "$components/Calendar.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+
+// Map content-plan rows onto the Calendar's post shape (date is a timestamp
+// in the backend, the calendar wants a YYYY-MM-DD key).
+const calendarPosts = $derived.by(() =>
+  data.plans.map((plan: any) => ({
+    id: plan.id,
+    title: plan.title,
+    contentText: plan.title ?? "",
+    platform: "calendar",
+    date: plan.date ? new Date(plan.date).toISOString().slice(0, 10) : "",
+    scheduledTime: plan.slotTime,
+    status: plan.status,
+  }))
+);
 </script>
 
 <svelte:head>
@@ -14,7 +29,7 @@ let { data }: { data: PageData } = $props();
     <button class="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90">New Plan</button>
   </div>
 
-  <Calendar plans={data.plans} />
+  <Calendar posts={calendarPosts} />
 
   <div class="space-y-2">
     {#if data.plans.length === 0}

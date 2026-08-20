@@ -1,16 +1,16 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 
-const _PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
+const PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
 
 let step = $state(1);
-let _saving = $state(false);
+let saving = $state(false);
 let accounts = $state<any[]>([]);
-let _campaignsList = $state<any[]>([]);
+let campaignsList = $state<any[]>([]);
 let postsList = $state<any[]>([]);
-let _loadingAccounts = $state(true);
-let _loadingPosts = $state(false);
-let _draftPosts = $state<any[]>([]);
+let loadingAccounts = $state(true);
+let loadingPosts = $state(false);
+let draftPosts = $state<any[]>([]);
 
 // Step 1: Campaign details
 let campaignName = $state("");
@@ -26,7 +26,7 @@ let selectedPostIds = $state<string[]>([]);
 
 // Load accounts for platform selection
 async function loadAccounts() {
-  _loadingAccounts = true;
+  loadingAccounts = true;
   try {
     const res = await fetch("/api/v1/accounts");
     if (res.ok) {
@@ -34,22 +34,22 @@ async function loadAccounts() {
       accounts = body.accounts || body.data || [];
     }
   } finally {
-    _loadingAccounts = false;
+    loadingAccounts = false;
   }
 }
 
 // Load draft/available posts for scheduling
 async function loadPosts() {
-  _loadingPosts = true;
+  loadingPosts = true;
   try {
     const res = await fetch("/api/v1/posts?limit=50");
     if (res.ok) {
       const body = await res.json();
       postsList = body.posts || body.data || [];
-      _draftPosts = postsList.filter((p: any) => p.status === "draft" || p.status === "scheduled");
+      draftPosts = postsList.filter((p: any) => p.status === "draft" || p.status === "scheduled");
     }
   } finally {
-    _loadingPosts = false;
+    loadingPosts = false;
   }
 }
 
@@ -58,7 +58,7 @@ $effect(() => {
   if (step === 3) loadPosts();
 });
 
-function _togglePlatform(platform: string) {
+function togglePlatform(platform: string) {
   if (selectedPlatforms.includes(platform)) {
     selectedPlatforms = selectedPlatforms.filter((p) => p !== platform);
   } else {
@@ -66,7 +66,7 @@ function _togglePlatform(platform: string) {
   }
 }
 
-function _togglePost(postId: string) {
+function togglePost(postId: string) {
   if (selectedPostIds.includes(postId)) {
     selectedPostIds = selectedPostIds.filter((id) => id !== postId);
   } else {
@@ -74,15 +74,15 @@ function _togglePost(postId: string) {
   }
 }
 
-function _canGoNext(): boolean {
+function canGoNext(): boolean {
   if (step === 1) return campaignName.trim().length > 0;
   if (step === 2) return selectedPlatforms.length > 0;
   if (step === 3) return selectedPostIds.length > 0;
   return true;
 }
 
-async function _createAndLaunch() {
-  _saving = true;
+async function createAndLaunch() {
+  saving = true;
   try {
     // Create the campaign
     const createRes = await fetch("/api/v1/campaigns", {
@@ -127,26 +127,21 @@ async function _createAndLaunch() {
 
     goto("/campaigns");
   } finally {
-    _saving = false;
+    saving = false;
   }
 }
 
-function _nextStep() {
+function nextStep() {
   if (step < 4) step++;
 }
 
-function _prevStep() {
+function prevStep() {
   if (step > 1) step--;
 }
 
-const _selectedAccounts = $derived(accounts.filter((a) => selectedPlatforms.includes(a.platform)));
+const selectedAccounts = $derived(accounts.filter((a) => selectedPlatforms.includes(a.platform)));
 
-const _stepTitles = [
-  "Campaign Details",
-  "Platform Selection",
-  "Post Scheduling",
-  "Review & Launch",
-];
+const stepTitles = ["Campaign Details", "Platform Selection", "Post Scheduling", "Review & Launch"];
 </script>
 
 <svelte:head>

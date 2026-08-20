@@ -1,17 +1,17 @@
 <script lang="ts">
 import { goto } from "$app/navigation";
 
-const _PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
+const PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
 
 let platform = $state("instagram");
 let contentText = $state("");
 let scheduledAt = $state("");
-let _saving = $state(false);
-let _generating = $state(false);
+let saving = $state(false);
+let generating = $state(false);
 let topic = $state("");
 
-async function _save(status: "draft" | "scheduled") {
-  _saving = true;
+async function save(status: "draft" | "scheduled") {
+  saving = true;
   try {
     const res = await fetch("/api/v1/posts", {
       method: "POST",
@@ -25,16 +25,16 @@ async function _save(status: "draft" | "scheduled") {
     });
     if (res.ok) {
       const body = await res.json();
-      goto(`/posts/${body.data.id}`);
+      goto(`/posts/${body.post.id}`);
     }
   } finally {
-    _saving = false;
+    saving = false;
   }
 }
 
-async function _generateWithAI() {
+async function generateWithAI() {
   if (!topic) return;
-  _generating = true;
+  generating = true;
   try {
     const res = await fetch("/api/v1/posts/generate", {
       method: "POST",
@@ -48,7 +48,7 @@ async function _generateWithAI() {
       }
     }
   } finally {
-    _generating = false;
+    generating = false;
   }
 }
 </script>

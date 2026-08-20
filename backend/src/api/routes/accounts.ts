@@ -3,19 +3,19 @@ import { Elysia } from "elysia";
 import { socialAccounts } from "../../db/schema.js";
 import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { authGuard } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import { requireAdmin, requireViewer } from "../middleware/rbac.js";
-import { tenantMiddleware } from "../middleware/tenant.js";
+import { tenantGuard } from "../middleware/tenant.js";
 
 const _log = logger.child({ module: "accounts-route" });
 
 export const accountsRoutes = new Elysia({ prefix: "/api/v1/accounts" })
   .use(createRateLimiter("authenticated"))
-  .use(authMiddleware)
-  .use(tenantMiddleware)
+  .onBeforeHandle(authGuard)
+  .onBeforeHandle(tenantGuard)
   // Viewer by default for read ops
-  .use(requireViewer())
+  .onBeforeHandle(requireViewer())
   // List connected social accounts
   .get("/", async (ctx: any) => {
     const tenantId = (ctx as any).tenantId;
@@ -63,7 +63,7 @@ export const accountsRoutes = new Elysia({ prefix: "/api/v1/accounts" })
     return { account };
   })
   // Disconnect is destructive — admin+
-  .use(requireAdmin())
+  .onBeforeHandle(requireAdmin())
   // Disconnect account
   .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db

@@ -5,7 +5,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
     const res = await fetch("/api/v1/content-plans");
     if (res.ok) {
       const body = await res.json();
-      return { plans: body.data ?? [] };
+      return { plans: body.plans ?? [] };
     }
   } catch {}
   return { plans: [] };

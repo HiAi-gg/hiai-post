@@ -1,9 +1,10 @@
 <script lang="ts">
+import { platformLogoColors } from "$lib/platform-brand-colors";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-const _PLATFORMS = [
+const PLATFORMS = [
   { id: "instagram", name: "Instagram" },
   { id: "tiktok", name: "TikTok" },
   { id: "x", name: "X (Twitter)" },
@@ -12,19 +13,21 @@ const _PLATFORMS = [
   { id: "telegram", name: "Telegram" },
 ] as const;
 
-function _isConnected(platformId: string) {
+function isConnected(platformId: string) {
   return data.accounts.some((a: any) => a.platform === platformId);
 }
 
-async function _connect(platformId: string) {
-  const res = await fetch(`/api/v1/oauth/${platformId}/connect`, { method: "POST" });
+async function connect(platformId: string) {
+  // The backend exposes OAuth connect as a GET that returns the provider
+  // authorization URL (`{ authUrl, state }`).
+  const res = await fetch(`/api/v1/oauth/${platformId}/connect`);
   if (res.ok) {
     const body = await res.json();
-    if (body.url) window.location.href = body.url;
+    if (body.authUrl) window.location.href = body.authUrl;
   }
 }
 
-async function _disconnect(accountId: string) {
+async function disconnect(accountId: string) {
   if (!confirm("Disconnect this account?")) return;
   await fetch(`/api/v1/accounts/${accountId}`, { method: "DELETE" });
   location.reload();

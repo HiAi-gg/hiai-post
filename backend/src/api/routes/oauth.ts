@@ -4,10 +4,10 @@ import { config as appConfig } from "../../lib/config.js";
 import { db } from "../../lib/db.js";
 import { encryptToken } from "../../lib/encryption.js";
 import { logger } from "../../lib/logger.js";
-import { generateState, validateState } from "../../lib/oauth-state.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { createPkceChallenge, generateState, validateState } from "../../lib/oauth-state.js";
+import { authGuard } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
-import { tenantMiddleware } from "../middleware/tenant.js";
+import { tenantGuard } from "../middleware/tenant.js";
 
 const log = logger.child({ module: "oauth-route" });
 
@@ -94,9 +94,9 @@ function getClientSecret(platform: string): string {
 
 export const oauthRoutes = new Elysia({ prefix: "/api/v1/oauth" })
   .use(createRateLimiter("authenticated") as any)
-  .use(authMiddleware)
-  .use(tenantMiddleware)
-  .get("/:platform/connect", async ({ params, set, tenantId }: any) => {
+  .onBeforeHandle(authGuard)
+  .onBeforeHandle(tenantGuard)
+  .get("/:platform/connect", async ({ params, set, tenantId, user }: any) => {
     const platformConfig = OAUTH_CONFIGS[params.platform];
     if (!platformConfig) {
       set.status = 400;
@@ -110,9 +110,15 @@ export const oauthRoutes = new Elysia({ prefix: "/api/v1/oauth" })
     }
 
     const redirectUri = `${appConfig.BETTER_AUTH_URL}/api/v1/oauth/${params.platform}/callback`;
-    const { state } = await generateState({
+    // Bind the signed state to the authenticated tenant AND user so the
+    // callback (a provider browser redirect with no Bearer/X-Tenant headers)
+    // can derive identity from the state alone. X/Twitter additionally gets a
+    // server-stored PKCE verifier.
+    const { state, pkceVerifier } = await generateState({
       platform: params.platform,
       tenantId,
+      userId: user?.id,
+      pkce: params.platform === "x",
     });
 
     const authUrl = new URL(platformConfig.authUrl);
@@ -123,13 +129,29 @@ export const oauthRoutes = new Elysia({ prefix: "/api/v1/oauth" })
     authUrl.searchParams.set("response_type", "code");
 
     if (params.platform === "x") {
-      authUrl.searchParams.set("code_challenge", state);
-      authUrl.searchParams.set("code_challenge_method", "plain");
+      if (!pkceVerifier) {
+        set.status = 500;
+        return { error: "Failed to generate PKCE verifier" };
+      }
+      authUrl.searchParams.set("code_challenge", createPkceChallenge(pkceVerifier));
+      authUrl.searchParams.set("code_challenge_method", "S256");
     }
 
     return { authUrl: authUrl.toString(), state };
-  })
-  .get("/:platform/callback", async ({ params, query, tenantId, set }: any) => {
+  });
+
+/**
+ * OAuth provider callback routes.
+ *
+ * The provider redirects the USER'S BROWSER here after authorization, so the
+ * request carries no `Authorization: Bearer` and no `X-Tenant-Id` header.
+ * Identity (tenant/user) is derived exclusively from the signed, one-time
+ * OAuth state minted by the connect route, which is validated below. Mounted
+ * OUTSIDE `protectedApp` (see api/index.ts) for this reason.
+ */
+export const oauthCallbackRoutes = new Elysia({ prefix: "/api/v1/oauth" })
+  .use(createRateLimiter("public") as any)
+  .get("/:platform/callback", async ({ params, query, set }: any) => {
     const code = query.code as string;
     if (!code) {
       set.status = 400;
@@ -151,14 +173,16 @@ export const oauthRoutes = new Elysia({ prefix: "/api/v1/oauth" })
       set.status = 400;
       return { error: "State platform mismatch" };
     }
-    if (statePayload.tenantId && tenantId && statePayload.tenantId !== tenantId) {
-      log.warn(
-        { stateTenant: statePayload.tenantId, sessionTenant: tenantId },
-        "OAuth callback rejected: tenant mismatch"
-      );
-      set.status = 403;
-      return { error: "Tenant mismatch" };
+
+    // Derive tenant (and user) from the signed one-time state — there are no
+    // auth/tenant headers on a provider redirect.
+    const tenantId = statePayload.tenantId;
+    if (!tenantId) {
+      log.warn({ platform: params.platform }, "OAuth callback rejected: state has no tenant");
+      set.status = 400;
+      return { error: "Invalid or expired state parameter" };
     }
+    const userId = statePayload.userId;
 
     const platformConfig = OAUTH_CONFIGS[params.platform];
     if (!platformConfig) {
@@ -181,7 +205,16 @@ export const oauthRoutes = new Elysia({ prefix: "/api/v1/oauth" })
       };
 
       if (params.platform === "x") {
-        body.code_verifier = "challenge";
+        // PKCE: the verifier must match the code_challenge sent at authorize
+        // time. It was stored server-side alongside the state by the connect
+        // route and is consumed one-time together with the state.
+        const verifier = statePayload.pkceVerifier;
+        if (!verifier) {
+          log.warn({}, "OAuth callback rejected: missing PKCE verifier for x");
+          set.status = 400;
+          return { error: "Missing PKCE verifier" };
+        }
+        body.code_verifier = verifier;
       }
 
       // Pinterest requires HTTP Basic Auth for token exchange; client_secret must NOT be in body.
@@ -330,7 +363,10 @@ export const oauthRoutes = new Elysia({ prefix: "/api/v1/oauth" })
         })
         .returning();
 
-      log.info({ platform: params.platform, accountId }, "Social account connected");
+      log.info(
+        { platform: params.platform, accountId, tenantId, userId },
+        "Social account connected"
+      );
       return {
         success: true,
         account: { id: account.id, platform: account.platform, username: account.username },

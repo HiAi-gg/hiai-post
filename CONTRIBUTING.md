@@ -84,6 +84,7 @@ bun run lint
 ### Database (Drizzle ORM)
 - **No raw SQL** — always use Drizzle ORM query builder
 - **Migrations** — use `drizzle-kit generate` to create migrations; review before committing
+- **Migration integrity** — before opening a PR that touches the schema or migrations, run `bun run db:check` against a disposable PostgreSQL (see the "Migration integrity check" section in README). It applies migrations `0000`..current on an empty DB, verifies core tables (`tenant_members`, Better Auth tables, `content_items`, `api_keys`) and detects schema/migration drift; it never writes into the repository. CI enforces the same check in the `Migration integrity` job.
 - **Schema** — every table must have `tenant_id` for multi-tenant isolation
 - **Indexes** — add indexes for all foreign keys and frequently queried columns
 

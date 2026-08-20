@@ -7,6 +7,10 @@ import { z } from "zod";
 import { logger } from "../../lib/logger.js";
 import { getMastra } from "../../mastra/index.js";
 import { contentGenerateWorkflow } from "../../mastra/workflows/content-generate.js";
+import { authGuard } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { requireViewer } from "../middleware/rbac.js";
+import { tenantGuard } from "../middleware/tenant.js";
 
 const generateRequestSchema = z.object({
   topic: z.string().min(1).max(500),
@@ -18,6 +22,10 @@ const generateRequestSchema = z.object({
 
 export function generateRoutes() {
   return new Elysia({ prefix: "/api/v1" })
+    .use(createRateLimiter("generate") as any)
+    .onBeforeHandle(authGuard)
+    .onBeforeHandle(tenantGuard)
+    .onBeforeHandle(requireViewer())
     .post("/posts/generate", async ({ body, set }) => {
       try {
         const validated = generateRequestSchema.parse(body);

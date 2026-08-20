@@ -85,8 +85,10 @@ hiai-post is a multi-tenant social media content planning and publishing platfor
        │+audit_log│  │          │  │                                    │
        └──────────┘  └──────────┘  └──────────────────────────────────┘
 
-                         ▲ Sentry-compatible DSN (errors/exceptions)
-                         │  HIAI_OBSERVE_SENTRY_DSN
+                         ▲ OTLP /v1/logs — Bearer API key
+                         │  Authorization: Bearer <HIAI_OBSERVE_API_KEY>
+                         │  structured Writer/Carousel/API/MCP events
+                         │  (correlation.id → traceId; no secrets/content)
                          │
                   ┌──────┴──────────────────────────┐
                   │         hiai-observe            │
@@ -105,14 +107,16 @@ hiai-post is a multi-tenant social media content planning and publishing platfor
 | Module | Directory | Responsibility |
 |--------|-----------|----------------|
 | **API Routes** | `api/routes/` | HTTP request handlers, validation, response formatting |
-| **Middleware** | `api/middleware/` | Auth, rate limiting, tenant scoping, security headers, audit logging (`audit.ts`), access logging |
-| **Publisher** | `core/publisher/` | Platform-specific publishing adapters |
+| **Middleware** | `api/middleware/` | Auth, rate limiting, tenant scoping, security headers, audit logging (`audit.ts`), access logging (`apiLogger.ts`) |
+| **Shared services** | `services/` | Runtime-validated application services (writer, carousels, content, projects, approval, api-keys, revisions) — tenant-scoped via `ctx.tenantId` only. Content items carry a `source` provenance column (web/api/chatgpt/automation/webhook/import — derived from the acting principal, never client input) and a `currentRevisionNumber` pointer advanced by `createRevision`/`restoreRevision` in the same transaction. Projects/brands carry the brand context (defaultLanguage, targetAudience, tone/voice, contentGuidelines, businessContext, references) which the Writer folds into generation prompts |
+| **MCP** | `api/mcp/` | JSON-RPC tool registry (`/api/v1/mcp`): thin wrappers over the shared services with per-tool scope checks |
+| **Publisher** | `core/publisher/` | Platform-specific publishing adapters — **DEPRECATED / REPLACED** by the Postiz boundary (see below); retained for compatibility |
 | **Scheduler** | `core/scheduler/` | Redis queue, cron-based poller, retry logic |
 | **Analytics** | `core/analytics/` | Engagement metrics aggregation from platform APIs |
 | **DB** | `db/` | Drizzle ORM schema definitions, migrations, client |
-| **Integrations** | `integrations/` | Social platform API clients (one directory per platform) |
+| **Integrations** | `integrations/` | Peer-service clients: `hiai-kit/` (capability API + carousel jobs), `postiz/` (publication-intent boundary), plus legacy social platform clients |
 | **Mastra** | `mastra/` | AI workflows, agents, tools |
-| **Lib** | `lib/` | Shared utilities (config, encryption, platform rules, etc.) |
+| **Lib** | `lib/` | Shared utilities (config, encryption, platform rules, `observe.ts` telemetry, etc.) |
 | **Workers** | `workers/` | Background workers (OAuth refresh, dead letter processing) |
 
 ### Frontend Modules (`app/src/`)
@@ -406,6 +410,132 @@ interface PlatformIntegration {
 }
 ```
 
+### hiai-kit Integration
+
+hiai-kit runs as a **peer service** (default `http://localhost:3000`) hosting the
+shared capability API (`/api/v1/capabilities`) and carousel jobs
+(`/api/v1/carousel`). All access is centralized in
+`backend/src/integrations/hiai-kit/` — the only module that builds hiai-kit
+URLs; the frontend never uses them directly.
+
+```
+backend/src/integrations/hiai-kit/
+  index.ts        → createHiaiKitClient() (capabilities + carousel clients)
+  config.ts       → HIAI_KIT_URL / HIAI_KIT_TIMEOUT_MS / HIAI_KIT_COOKIE / HIAI_KIT_TOKEN
+  errors.ts       → normalized HiaiKitError (CAPABILITY_UNAVAILABLE, HIAI_KIT_ERROR, TIMEOUT, VALIDATION_ERROR)
+  schemas.ts      → runtime-validated request/response contracts (mirrors hiai-kit)
+  http.ts         → the single HTTP boundary (timeout, correlation ids, sanitized errors)
+  capabilities.ts → research.general / content.article / content.carousel via the capability envelope
+  carousel.ts     → carousel job create/get/slide JSON/regenerate/cover methods
+```
+
+Auth is only as good as what hiai-kit accepts: writes are gated by a Better
+Auth session (`requireAuth` + `agents:write`). Without `HIAI_KIT_COOKIE` /
+`HIAI_KIT_TOKEN` configured (server-side credentials forwarded as `Cookie` /
+`Authorization: Bearer`), protected calls fail with 401 mapped to
+`HIAI_KIT_ERROR` — the boundary never claims authentication works without
+configured credentials, and never logs secrets.
+
+### hiai-observe Integration (telemetry)
+
+`backend/src/lib/observe.ts` is the single telemetry emitter. It sends
+structured **Writer / Carousel / Content (incl. approval) / Postiz / API /
+MCP / Webhook** start/success/failure events to the hiai-observe plane (peer
+service, default `http://localhost:8001`) over the OTLP `/v1/logs` endpoint,
+authenticated with the **verified Bearer API-key contract**
+(`Authorization: Bearer <HIAI_OBSERVE_API_KEY>` — the same contract
+hiai-observe's auth middleware and hiai-kit's working OTLP clients use;
+`X-Sentry-Auth` is never sent).
+
+```
+hiai-post (lib/observe.ts) ──POST /v1/logs──▶ hiai-observe
+   Authorization: Bearer <key>   resourceLogs[].logRecords[]
+   correlation.id → traceId      severityText: INFO | ERROR
+   tenant.id / user.id / status.code / error.code / duration.ms
+```
+
+- **Config:** `HIAI_OBSERVE_URL`, `HIAI_OBSERVE_API_KEY`, `HIAI_OBSERVE_PROJECT`
+  (all optional), `HIAI_OBSERVE_TIMEOUT_MS` (default 2000). Unconfigured →
+  **no-op**: zero network, zero overhead.
+- **Never fails the product request:** emits are fire-and-forget and bounded by
+  a timeout; every outbound error is swallowed. `observeCall(...)` wraps async
+  operations (start/success/failure) and returns/rethrows the operation's own
+  result — telemetry can never alter behavior.
+- **No secrets / content leakage:** only sanitized metadata (ids, statuses,
+  durations, error codes) is sent; secret-shaped keys are dropped, strings are
+  truncated, and content bodies/prompts are never attached.
+- **No telemetry database:** events are forwarded outbound only.
+- **Instrumented points:** Writer service (`writer.generate`/`writer.rewrite`),
+  Carousel service (`carousel.create`/`carousel.regenerate`/
+  `carousel.regenerateSlide`/`carousel.job.status`), Content service
+  (`content.create`), the approval state machine (`content.submit_review`/
+  `content.approve`/`content.request_changes`), the Postiz boundary
+  (`postiz.submit`/`postiz.status_sync`), the hiai-store webhook receiver
+  (`webhook.store_product` outcomes incl. signature/tenant/dedup results), the
+  hiai-kit adapter HTTP boundary (`hiai-kit.http`, every outbound call), the
+  MCP route (`mcp.request` + `mcp.tools.call:<tool>`), and the API entry point
+  (`api.request` for every `/api/*` request except health/CORS).
+- `SENTRY_DSN` remains a declared-only legacy value; hiai-post sends no
+  `X-Sentry-Auth` traffic.
+
+### Writer & Carousel Product Layer
+
+`backend/src/services/writer.ts` and `backend/src/services/carousels.ts` are
+runtime-validated application services composing the hiai-kit boundary with the
+shared persistence services:
+
+- **Writer:** `article` → hiai-kit `content.article` capability; `social_post`
+  → a TEMPORARY local adapter over the pre-existing mastra
+  `content-generate` workflow (hiai-kit `content.post` does not exist yet —
+  the fallback is explicit and documented). Generate persists a content item +
+  revision #1; rewrite appends a revision (append-only history).
+- **Carousels:** create / regenerate / per-slide regenerate / live job status /
+  slide JSON, each proxying hiai-kit through the centralized adapter and
+  persisting `{ kind: "carousel", ... }` bodyJson with immutable revisions.
+- Both emit hiai-observe events (see above) and never fabricate success when
+  hiai-kit is unavailable or auth-blocked (normalized `HiaiKitError` envelopes).
+
+### MCP (Work API)
+
+`POST /api/v1/mcp` (routes `api/routes/mcp.ts`, registry `api/mcp/tools.ts`)
+exposes the Work API to ChatGPT / any MCP client as JSON-RPC 2.0. Tools are
+thin wrappers over the shared services (writer, carousels, content, approval)
+with per-tool scope checks (`requiredScope`) and runtime argument validation —
+no agent internals are reachable. Only machine principals (Bearer `hpk_<key>`
+API keys or admin JWTs) are accepted; tenant scope comes exclusively from the
+machine principal. Every call carries a correlation id; failures return MCP
+tool results with `isError: true` (never protocol errors).
+
+### Postiz Integration (publication boundary)
+
+`backend/src/integrations/postiz/` is a **typed integration boundary only**:
+
+```
+postiz/
+  config.ts   → POSTIZ_API_URL / POSTIZ_API_KEY / POSTIZ_TIMEOUT_MS (optional; summary never logs the key)
+  schemas.ts  → runtime contracts: externalProvider / externalItemId /
+                scheduledAt / status (scheduled|published|failed|cancelled) /
+                url / error
+  errors.ts   → normalized PostizError (NOT_CONFIGURED / TIMEOUT /
+                VALIDATION_ERROR / POSTIZ_ERROR)
+  client.ts   → createPostizClient(): submitPublication(intent) +
+                syncStatus(record) — Bearer auth, bounded timeout,
+                correlation ids, sanitized failures
+```
+
+- **Explicitly NOT wired into publishing.** There is no queue, no scheduler
+  consumer, and no service calls this client yet — it exists so future
+  publication work has a single typed, sanitized, tested path.
+- **Does NOT repair or replace the native platform adapters.** The pre-existing
+  `core/publisher/` adapters remain the current publishing owners; they are
+  **DEPRECATED / REPLACED** by this boundary in the sense that new publication
+  work should target Postiz-style backends through `integrations/postiz`
+  instead of growing the legacy adapters.
+- **Never claims live Postiz works without credentials.** Unconfigured →
+  `503 NOT_CONFIGURED`. Endpoint paths (`/api/v1/publications`,
+  `/api/v1/publications/status`) are this boundary's expectation — verify
+  against the actual Postiz deployment before enabling live use.
+
 ### AI Integration (Mastra)
 
 Content generation uses Mastra workflows with Zod-validated schemas:
@@ -425,7 +555,8 @@ content-generate workflow:
 |--------|---------|----------|
 | **hiai-admin** | REST API calls | HTTP/JSON |
 | **hiai-store** | Event-driven (webhooks) | HTTP/JSON + `X-Webhook-Secret` HMAC header |
-| **hiai-observe** | Error reporting | Sentry-compatible DSN |
+| **hiai-observe** | Structured events (Writer/Carousel/API/MCP start/success/failure) | OTLP `/v1/logs` JSON + `Authorization: Bearer <key>` (see hiai-observe section below) |
+| **Postiz** | Publication-intent submission / status sync (boundary only) | HTTP/JSON + `Authorization: Bearer <key>` (see Postiz section below) |
 ### SSE Real-time Events
 
 The `events.ts` route provides Server-Sent Events for real-time publish status updates:

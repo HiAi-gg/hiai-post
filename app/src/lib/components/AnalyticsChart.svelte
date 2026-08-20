@@ -1,6 +1,12 @@
 <script lang="ts">
-import type { BarChart } from "layerchart";
+import { BarChart } from "layerchart";
 import type { ComponentProps } from "svelte";
+
+// Re-bind the chart component to a local const: the Svelte template needs a
+// value import, while the `series` type is derived via `typeof`. Binding it
+// here keeps Biome's import organizer from narrowing the import to type-only
+// (which Svelte templates cannot use as a component).
+const BarChartComponent = BarChart;
 
 /**
  * The default bar color is sourced from the CSS custom property
@@ -18,7 +24,7 @@ let {
 // but supplying an explicit `series` array lets us thread the `color` prop
 // through to the bars (LayerChart uses `cRange`/series `color`, not a `color`
 // prop on `<BarChart>` itself).
-const _series = $derived<ComponentProps<typeof BarChart>["series"]>([
+const series = $derived<ComponentProps<typeof BarChartComponent>["series"]>([
   {
     key: "value",
     label,
@@ -30,12 +36,12 @@ const _series = $derived<ComponentProps<typeof BarChart>["series"]>([
 // the input. LayerChart's bar band scale otherwise derives order from the
 // data array, which is what we want, but pinning the domain keeps the chart
 // stable when data is partially updated.
-const _xDomain = $derived(data.map((d) => d.date));
+const xDomain = $derived(data.map((d) => d.date));
 
 // Force the chart to re-mount when the data array reference changes so
 // LayerChart recomputes scales correctly (avoids stale band positions
 // when consumers pass a new array with the same length).
-const _chartKey = $derived(data.length);
+const chartKey = $derived(data.length);
 </script>
 
 <div class="bg-card border border-border rounded-lg p-4">
@@ -43,7 +49,7 @@ const _chartKey = $derived(data.length);
   <div class="h-32 w-full">
     {#if data.length > 0}
       {#key chartKey}
-        <BarChart
+        <BarChartComponent
           {data}
           x="date"
           y="value"

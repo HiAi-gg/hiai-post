@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import { buildUpstreamHeaders } from "$lib/server/bridge";
 import type { RequestHandler } from "./$types";
 
 /**
@@ -11,26 +12,30 @@ import type { RequestHandler } from "./$types";
  * `Unable to connect` and the page renders as 500.
  *
  * We forward the request to the hiai-post API backend so cookies and
- * session state stay server-to-server, then pipe the response back. Mirrors
- * the hiai-docs pattern (see projects/hiai-docs/frontend/src/routes/api/[...path]/+server.ts).
+ * session state stay server-to-server, then pipe the response back. Better
+ * Auth endpoints are mounted outside the backend's protected chain, so no
+ * `Authorization` / `X-Tenant-Id` injection happens here — the session
+ * cookie itself is the credential. Mirrors the hiai-docs pattern (see
+ * projects/hiai-docs/frontend/src/routes/api/[...path]/+server.ts).
  */
 const API_BASE = process.env.API_URL || "http://localhost:50300";
 
-function buildHeaders(request: Request): Headers {
-  // Copy all request headers so cookies / content-type / x-tenant-id pass through.
-  const headers = new Headers(request.headers);
-  // Strip hop-by-hop / length headers — fetch will recompute.
-  headers.delete("content-length");
-  headers.delete("host");
-  return headers;
+function buildHeaders(request: Request, locals: App.Locals): Headers {
+  // Copy all request headers so cookies / content-type / x-tenant-id pass
+  // through, stripping hop-by-hop / framing headers that fetch recomputes.
+  return buildUpstreamHeaders(request.headers, locals);
 }
 
-async function proxy(request: Request, params: { path?: string }): Promise<Response> {
+async function proxy(
+  request: Request,
+  params: { path?: string },
+  locals: App.Locals
+): Promise<Response> {
   const path = params.path ?? "";
   const url = new URL(request.url);
   const targetUrl = `${API_BASE}/api/auth/${path}${url.search}`;
 
-  const headers = buildHeaders(request);
+  const headers = buildHeaders(request, locals);
 
   const init: RequestInit = {
     method: request.method,
@@ -81,14 +86,20 @@ async function proxy(request: Request, params: { path?: string }): Promise<Respo
   }
 }
 
-export const GET: RequestHandler = async ({ request, params }) => proxy(request, params);
+export const GET: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
 
-export const POST: RequestHandler = async ({ request, params }) => proxy(request, params);
+export const POST: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
 
-export const PUT: RequestHandler = async ({ request, params }) => proxy(request, params);
+export const PUT: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
 
-export const PATCH: RequestHandler = async ({ request, params }) => proxy(request, params);
+export const PATCH: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
 
-export const DELETE: RequestHandler = async ({ request, params }) => proxy(request, params);
+export const DELETE: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
 
-export const OPTIONS: RequestHandler = async ({ request, params }) => proxy(request, params);
+export const OPTIONS: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);

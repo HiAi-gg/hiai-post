@@ -1,6 +1,7 @@
 <script lang="ts">
 import { type EditorOutput, HiAiEditor } from "@hiai/ui";
 import { platformBrandColors } from "../platform-brand-colors";
+import PlatformPreview from "./PlatformPreview.svelte";
 
 interface Props {
   content?: string;
@@ -23,15 +24,16 @@ let {
 }: Props = $props();
 
 let topic = $state("");
-let _generating = $state(false);
-let _showSchedule = $state(false);
+let generating = $state(false);
+let showSchedule = $state(false);
 let scheduleDate = $state("");
 let scheduleTime = $state("");
-let _dragActive = $state(false);
-let _showPreview = $state(false);
-let _selectedPreviewPlatform = $state("instagram");
+let dragActive = $state(false);
+let showPreview = $state(false);
+let selectedPreviewPlatform = $state("instagram");
+let contentJson = $state<unknown>(null);
 
-const _ALL_PLATFORMS = [
+const ALL_PLATFORMS = [
   "instagram",
   "tiktok",
   "x",
@@ -44,7 +46,7 @@ const _ALL_PLATFORMS = [
   "youtube-shorts",
   "youtube-long",
 ];
-const _platformIcons: Record<string, string> = {
+const platformIcons: Record<string, string> = {
   instagram: "📸",
   tiktok: "🎵",
   x: "🧵",
@@ -57,7 +59,7 @@ const _platformIcons: Record<string, string> = {
   "youtube-shorts": "🎬",
   "youtube-long": "▶️",
 };
-const _platformColors: Record<string, string> = platformBrandColors;
+const platformColors: Record<string, string> = platformBrandColors;
 
 const charLimits: Record<string, number> = {
   instagram: 2200,
@@ -75,9 +77,9 @@ const charLimits: Record<string, number> = {
 
 const activeLimit = $derived(Math.min(...platforms.map((p) => charLimits[p] ?? 2200)));
 const remaining = $derived(activeLimit - content.length);
-const _overLimit = $derived(remaining < 0);
+const overLimit = $derived(remaining < 0);
 
-function _togglePlatform(p: string) {
+function togglePlatform(p: string) {
   if (platforms.includes(p)) {
     if (platforms.length > 1) platforms = platforms.filter((x) => x !== p);
   } else {
@@ -85,27 +87,27 @@ function _togglePlatform(p: string) {
   }
 }
 
-async function _handleGenerate() {
+async function handleGenerate() {
   if (!topic || !onGenerate) return;
-  _generating = true;
+  generating = true;
   try {
     content = await onGenerate(topic);
   } finally {
-    _generating = false;
+    generating = false;
   }
 }
 
-function _handleSchedule() {
+function handleSchedule() {
   if (scheduleDate && scheduleTime && onSchedule) {
     const iso = `${scheduleDate}T${scheduleTime}:00Z`;
     onSchedule(iso);
-    _showSchedule = false;
+    showSchedule = false;
   }
 }
 
-function _handleDrop(e: DragEvent) {
+function handleDrop(e: DragEvent) {
   e.preventDefault();
-  _dragActive = false;
+  dragActive = false;
   const files = e.dataTransfer?.files;
   if (files) {
     for (const file of files) {
@@ -117,7 +119,7 @@ function _handleDrop(e: DragEvent) {
   }
 }
 
-function _removeMedia(index: number) {
+function removeMedia(index: number) {
   mediaUrls = mediaUrls.filter((_: string, i: number) => i !== index);
 }
 </script>

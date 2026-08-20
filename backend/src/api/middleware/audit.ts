@@ -7,9 +7,9 @@
  * a request that ultimately failed validation, auth, or business logic.
  *
  * Captured fields (per schema.ts → auditLogs):
- *   - tenant_id     → context.tenantId (set by tenantMiddleware)
- *   - actor_id      → context.user.id  (set by authMiddleware)
- *   - role          → context.role     (set by rbacMiddleware, if any)
+ *   - tenant_id     → context.tenantId (set by tenantGuard)
+ *   - actor_id      → context.user.id  (set by authGuard)
+ *   - role          → context.role     (set by rbacGuard, if any)
  *   - action        → HTTP method in upper case (POST / PUT / PATCH / DELETE)
  *   - resource      → route path  (e.g. "/api/v1/posts/:id")
  *   - resource_id   → trailing path param if it looks like a UUID / opaque id
@@ -17,14 +17,13 @@
  *   - ip_address    → first x-forwarded-for entry, then x-real-ip
  *
  * Notes:
- *   - `audit` is registered INSIDE the protected app, after auth + tenant, so
- *     it can rely on those context values being present.
+ *   - `auditAfterHandle` is registered INSIDE the protected app, after auth +
+ *     tenant, so it can rely on those context values being present.
  *   - We never log the raw Authorization header or anything password-shaped
  *     (password, token, secret, key, signature).
  *   - The DB write is best-effort: a logging failure must not break the user
  *     request. Errors are surfaced through pino only.
  */
-import { Elysia } from "elysia";
 import { auditLogs } from "../../db/schema.js";
 import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
@@ -117,8 +116,20 @@ function extractResourceId(path: string): string | null {
   return null;
 }
 
-export const auditMiddleware = new Elysia({ name: "audit" }).onAfterHandle(async (ctx) => {
-  const { request, set, user, tenantId, role } = ctx as typeof ctx & {
+/**
+ * Audit logging hook. Register INLINE on the protected app
+ * (`onAfterHandle(auditAfterHandle)`) after the auth + tenant guards. Runs
+ * AFTER the route handler so we never persist an audit row for a request
+ * that ultimately failed validation, auth, or business logic.
+ *
+ * NOTE: this must be a plain function, not a hook-only Elysia plugin: under
+ * Elysia 1.4.x, hooks contributed by plugin instances used via `.use()` are
+ * unreliable, so hooks are composed inline.
+ */
+export async function auditAfterHandle(ctx: any) {
+  const { request, set, user, tenantId, role } = ctx as {
+    request: Request;
+    set: { status?: number };
     user?: { id: string };
     tenantId?: string;
     role?: import("../../db/schema.js").TenantRole | null;
@@ -172,4 +183,4 @@ export const auditMiddleware = new Elysia({ name: "audit" }).onAfterHandle(async
     // Never let an audit failure break the response.
     log.error({ err, path, method, status }, "Failed to write audit log row");
   }
-});
+}

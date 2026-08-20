@@ -4,11 +4,11 @@ import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 let post = $state(data.post);
-let _saving = $state(false);
+let saving = $state(false);
 
-async function _updatePost() {
+async function updatePost() {
   if (!post) return;
-  _saving = true;
+  saving = true;
   try {
     const res = await fetch(`/api/v1/posts/${post.id}`, {
       method: "PUT",
@@ -17,24 +17,24 @@ async function _updatePost() {
     });
     if (res.ok) goto("/posts");
   } finally {
-    _saving = false;
+    saving = false;
   }
 }
 
-async function _deletePost() {
+async function deletePost() {
   if (!post || !confirm("Delete this post?")) return;
   await fetch(`/api/v1/posts/${post.id}`, { method: "DELETE" });
   goto("/posts");
 }
 
-async function _publishNow() {
+async function publishNow() {
   if (!post) return;
-  _saving = true;
+  saving = true;
   try {
     const res = await fetch(`/api/v1/posts/${post.id}/publish`, { method: "POST" });
     if (res.ok) goto("/posts");
   } finally {
-    _saving = false;
+    saving = false;
   }
 }
 </script>

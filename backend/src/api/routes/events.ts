@@ -1,5 +1,9 @@
 import { Elysia } from "elysia";
 import { logger } from "../../lib/logger.js";
+import { authGuard } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { requireViewer } from "../middleware/rbac.js";
+import { tenantGuard } from "../middleware/tenant.js";
 
 interface SSEClient {
   id: string;
@@ -68,12 +72,19 @@ if (typeof process !== "undefined") {
 
 /**
  * SSE event stream routes.
+ *
+ * The stream is scoped to the authenticated principal's tenant
+ * (`ctx.tenantId` from tenantGuard) — the `tenantId` query parameter is
+ * ignored so a client cannot subscribe to another tenant's event stream.
  */
 export function eventRoutes() {
   return (
     new Elysia({ prefix: "/api/v1" })
-      .get("/events", ({ query }) => {
-        const tenantId = (query as Record<string, string>).tenantId as string | undefined;
+      .use(createRateLimiter("authenticated") as any)
+      .onBeforeHandle(authGuard)
+      .onBeforeHandle(tenantGuard)
+      .onBeforeHandle(requireViewer())
+      .get("/events", ({ tenantId }: any) => {
         const clientId = crypto.randomUUID();
 
         const stream = new ReadableStream({
@@ -90,7 +101,7 @@ export function eventRoutes() {
             clients.set(clientId, {
               id: clientId,
               controller,
-              tenantId,
+              tenantId: tenantId as string,
               lastHeartbeat: Date.now(),
             });
 
@@ -112,11 +123,13 @@ export function eventRoutes() {
         });
       })
 
-      // Stats endpoint for debugging
-      .get("/events/stats", () => {
+      // Stats endpoint for debugging — scoped to the caller's tenant so the
+      // connected-client list never leaks another tenant's ids.
+      .get("/events/stats", ({ tenantId }: any) => {
+        const scoped = Array.from(clients.values()).filter((c) => c.tenantId === tenantId);
         return {
-          connectedClients: clients.size,
-          clients: Array.from(clients.values()).map((c) => ({
+          connectedClients: scoped.length,
+          clients: scoped.map((c) => ({
             id: c.id,
             tenantId: c.tenantId,
             connectedFor: `${Math.round((Date.now() - c.lastHeartbeat) / 1000)}s ago (last heartbeat)`,

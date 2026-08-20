@@ -1,7 +1,7 @@
 <script lang="ts">
 let { open = $bindable(false), onConnect } = $props();
 
-const _PLATFORMS = [
+const PLATFORMS = [
   { id: "instagram", name: "Instagram" },
   { id: "tiktok", name: "TikTok" },
   { id: "x", name: "X (Twitter)" },
@@ -10,7 +10,7 @@ const _PLATFORMS = [
   { id: "telegram", name: "Telegram" },
 ];
 
-async function _connect(platformId: string) {
+async function connect(platformId: string) {
   if (onConnect) await onConnect(platformId);
   open = false;
 }

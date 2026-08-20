@@ -1,13 +1,14 @@
 <script lang="ts">
+import BestTimeChart from "$components/BestTimeChart.svelte";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
-const _a = $derived(data.overview);
-const _platforms = $derived(data.platforms);
-const _topPosts = $derived(data.topPosts);
+const a = $derived(data.overview);
+const platforms = $derived(data.platforms);
+const topPosts = $derived(data.topPosts);
 const timeline = $derived(data.timeline);
-const _bestHours = $derived(data.bestHours);
-const _bestTimes = $derived(data.bestTimes ?? []);
+const bestHours = $derived(data.bestHours);
+const bestTimes = $derived(data.bestTimes ?? []);
 
 // Platform icon/color map
 const platformMeta: Record<string, { icon: string; color: string; bg: string }> = {
@@ -19,24 +20,24 @@ const platformMeta: Record<string, { icon: string; color: string; bg: string }> 
   telegram: { icon: "✈️", color: "text-sky-500", bg: "bg-sky-50 dark:bg-sky-950" },
 };
 
-function _getMeta(platform: string) {
+function getMeta(platform: string) {
   return platformMeta[platform] ?? { icon: "📱", color: "text-muted-foreground", bg: "bg-muted" };
 }
 
-function _formatNum(n: number): string {
+function formatNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toString();
 }
 
 // Find max for timeline chart scaling
-const _maxTimelineCount = $derived(Math.max(...timeline.map((d) => d.count), 1));
+const maxTimelineCount = $derived(Math.max(...timeline.map((d) => d.count), 1));
 
 // Time range selector
-let _timeRange = $state("30d");
-const _ranges = ["7d", "30d", "90d", "all"] as const;
+let timeRange = $state("30d");
+const ranges = ["7d", "30d", "90d", "all"] as const;
 
-function _getDays(r: string): number {
+function getDays(r: string): number {
   if (r === "7d") return 7;
   if (r === "90d") return 90;
   if (r === "all") return 365;

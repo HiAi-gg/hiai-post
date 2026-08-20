@@ -1,12 +1,13 @@
 <script lang="ts">
 import "../app.css";
+import { AdminHeader, AdminSidebar, sidebarStore, ThemeToggle } from "@hiai/ui";
 import { hiaiPostPlugin } from "$lib/plugin";
 
 let { data, children } = $props();
 
-const _mode = data?.mode ?? "standalone";
+const mode = data?.mode ?? "standalone";
 
-const _navGroups = hiaiPostPlugin.navGroups;
+const navGroups = hiaiPostPlugin.navGroups;
 </script>
 
 <svelte:head>
@@ -21,7 +22,7 @@ const _navGroups = hiaiPostPlugin.navGroups;
   <!-- Standalone mode: render own sidebar + header -->
   <div class="flex h-screen overflow-hidden bg-background">
     <AdminSidebar
-      navGroups={navGroups}
+      groups={navGroups}
       collapsed={sidebarStore.collapsed}
       appName="hiai-post"
     />

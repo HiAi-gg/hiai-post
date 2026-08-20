@@ -1,13 +1,20 @@
 import type { LayoutServerLoad } from "./$types";
 
+/**
+ * Resolves the session user for the UI shell.
+ *
+ * `/api/auth/get-session` is served by the Better Auth delegation route on
+ * the backend (mounted outside the protected chain), so this works for
+ * anonymous visitors too — it simply returns `user: null` when no session
+ * exists. The session cookie is forwarded by the auth proxy; the hooks
+ * bridge (`src/hooks.server.ts`) separately extracts the session token for
+ * protected `/api/v1/*` calls.
+ */
 export const load: LayoutServerLoad = async ({ fetch }) => {
-  console.error("[+layout.server] start");
   try {
     const res = await fetch("/api/auth/get-session");
-    console.error("[+layout.server] auth status:", res.status);
     if (res.ok) {
       const session = await res.json();
-      console.error("[+layout.server] session:", JSON.stringify(session));
       return {
         user: session?.user ?? null,
         mode: import.meta.env.PUBLIC_HIAI_MODE || "standalone",
@@ -19,6 +26,5 @@ export const load: LayoutServerLoad = async ({ fetch }) => {
       err instanceof Error ? err.message : String(err)
     );
   }
-  console.error("[+layout.server] returning anon");
   return { user: null, mode: import.meta.env.PUBLIC_HIAI_MODE || "standalone" };
 };

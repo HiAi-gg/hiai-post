@@ -14,12 +14,17 @@
     "lint": "bun run --filter '*' lint",
     "lint:fix": "bun run --filter '*' lint:fix",
     "typecheck": "bun run --filter '*' typecheck",
-    "test": "cd backend && bunx vitest run",
+    "test": "bun run --filter '*' test",
+    "test:backend": "cd backend && bun run test",
+    "test:frontend": "cd app && bun run test",
+    "test:e2e": "bun test app/tests/e2e/",
+    "test:coverage": "bun run --filter '*' test:coverage",
     "db:generate": "cd backend && bun run db:generate",
     "db:migrate": "cd backend && bun run db:migrate",
     "db:push": "cd backend && bun run db:push",
     "db:seed": "cd backend && bun run db:seed",
-    "test:coverage": "bunx vitest run --coverage"
+    "db:check": "cd backend && bun run db:check",
+    "audit": "bun audit"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0"

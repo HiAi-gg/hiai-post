@@ -5,5 +5,11 @@ export default defineConfig({
     exclude: ["tests/e2e/**"],
     include: ["src/**/*.test.ts"],
     environment: "node",
+    poolOptions: {
+      forks: {
+        minForks: 1,
+        maxForks: 9,
+      },
+    },
   },
 });

@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import { buildUpstreamHeaders } from "$lib/server/bridge";
 import type { RequestHandler } from "./$types";
 
 /**
@@ -8,25 +9,29 @@ import type { RequestHandler } from "./$types";
  * resolves against the frontend origin. Without this proxy the fetch
  * returns 404 and the page renders as 500.
  *
- * Forward the request to the hiai-post API backend so cookies and headers
- * pass through, then pipe the response back. Mirrors the auth proxy at
+ * The proxy forwards the request to the hiai-post API backend and pipes
+ * the response back. It also injects the frontend's existing session
+ * (`Authorization: Bearer <sessionToken>`) and resolved workspace
+ * (`X-Tenant-Id`) headers — the backend's `auth` + `tenant` middleware
+ * require both, and the SvelteKit server is the only place they can be
+ * derived from the browser's session cookie. Mirrors the auth proxy at
  * `src/routes/api/auth/[...path]/+server.ts`.
  */
 const API_BASE = process.env.API_URL || "http://localhost:50300";
 
-function buildHeaders(request: Request): Headers {
-  const headers = new Headers(request.headers);
-  headers.delete("content-length");
-  headers.delete("host");
-  return headers;
-}
-
-async function proxy(request: Request, params: { path?: string }): Promise<Response> {
+async function proxy(
+  request: Request,
+  params: { path?: string },
+  locals: App.Locals
+): Promise<Response> {
   const path = params.path ?? "";
   const url = new URL(request.url);
   const targetUrl = `${API_BASE}/api/v1/${path}${url.search}`;
 
-  const headers = buildHeaders(request);
+  const headers = buildUpstreamHeaders(request.headers, locals, {
+    injectSession: true,
+    injectTenant: true,
+  });
 
   const init: RequestInit = {
     method: request.method,
@@ -72,9 +77,15 @@ async function proxy(request: Request, params: { path?: string }): Promise<Respo
   }
 }
 
-export const GET: RequestHandler = async ({ request, params }) => proxy(request, params);
-export const POST: RequestHandler = async ({ request, params }) => proxy(request, params);
-export const PUT: RequestHandler = async ({ request, params }) => proxy(request, params);
-export const PATCH: RequestHandler = async ({ request, params }) => proxy(request, params);
-export const DELETE: RequestHandler = async ({ request, params }) => proxy(request, params);
-export const OPTIONS: RequestHandler = async ({ request, params }) => proxy(request, params);
+export const GET: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
+export const POST: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
+export const PUT: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
+export const PATCH: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
+export const DELETE: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);
+export const OPTIONS: RequestHandler = async ({ request, params, locals }) =>
+  proxy(request, params, locals);

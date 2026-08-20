@@ -13,7 +13,7 @@ const charLimits: Record<string, number> = {
 };
 
 const limit = $derived(charLimits[platform] ?? 2200);
-const _isOver = $derived(content.length > limit);
+const isOver = $derived(content.length > limit);
 </script>
 
 <div class="bg-card border border-border rounded-lg p-4">

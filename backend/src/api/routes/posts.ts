@@ -5,10 +5,10 @@ import { posts } from "../../db/schema.js";
 import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
 import { enqueuePost, removeQueuedPost } from "../../lib/redis.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { authGuard } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 import { requireAdmin, requireEditor, requireViewer } from "../middleware/rbac.js";
-import { tenantMiddleware } from "../middleware/tenant.js";
+import { tenantGuard } from "../middleware/tenant.js";
 import {
   createPostSchema,
   paginationSchema,
@@ -20,10 +20,10 @@ const _log = logger.child({ module: "posts-route" });
 
 export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
   .use(createRateLimiter("authenticated") as any)
-  .use(authMiddleware)
-  .use(tenantMiddleware)
+  .onBeforeHandle(authGuard)
+  .onBeforeHandle(tenantGuard)
   // Viewer by default — anyone authenticated can read.
-  .use(requireViewer())
+  .onBeforeHandle(requireViewer())
   // List posts with pagination and filters
   .get("/", async ({ tenantId, query }: any) => {
     const { page, limit, sortBy, sortOrder } = paginationSchema.parse(query);
@@ -75,7 +75,7 @@ export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
     return { post };
   })
   // Writes require editor+
-  .use(requireEditor())
+  .onBeforeHandle(requireEditor())
   // Create post
   .post("/", async ({ body, tenantId, set }: any) => {
     const input = createPostSchema.parse(body);
@@ -156,7 +156,7 @@ export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
     return { post: updated };
   })
   // Destructive ops require admin+
-  .use(requireAdmin())
+  .onBeforeHandle(requireAdmin())
   // Delete post
   .delete("/:id", async ({ params, tenantId, set }: any) => {
     const [deleted] = await db
@@ -189,7 +189,7 @@ export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
     const [updated] = await db
       .update(posts)
       .set({ scheduledAt: new Date(scheduledAt), status: "scheduled", updatedAt: new Date() })
-      .where(eq(posts.id, params.id))
+      .where(and(eq(posts.id, params.id), eq(posts.tenantId, tenantId)))
       .returning();
 
     await enqueuePost(tenantId, params.id, new Date(scheduledAt));
@@ -217,7 +217,7 @@ export const postsRoutes = new Elysia({ prefix: "/api/v1/posts" })
     const [updated] = await db
       .update(posts)
       .set({ status: "publishing", updatedAt: new Date() })
-      .where(eq(posts.id, params.id))
+      .where(and(eq(posts.id, params.id), eq(posts.tenantId, tenantId)))
       .returning();
 
     return { post: updated, message: "Post queued for immediate publishing" };

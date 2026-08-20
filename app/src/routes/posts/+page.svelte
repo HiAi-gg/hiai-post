@@ -5,10 +5,10 @@ import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
 
-const _PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
-const _STATUSES = ["draft", "scheduled", "publishing", "published", "failed"];
+const PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram"];
+const STATUSES = ["draft", "scheduled", "publishing", "published", "failed"];
 
-function _setFilter(key: string, value: string) {
+function setFilter(key: string, value: string) {
   const params = new URLSearchParams(page.url.searchParams);
   if (value) params.set(key, value);
   else params.delete(key);

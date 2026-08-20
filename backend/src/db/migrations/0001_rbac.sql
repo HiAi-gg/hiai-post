@@ -1,3 +1,17 @@
+-- The tenant_members FKs below reference the Better Auth `user` table, which
+-- no earlier migration creates. Create it here first (mirrors `user` in
+-- backend/src/db/schema.ts) so the migration chain applies on a fresh DB.
+CREATE TABLE "user" (
+	"id" text PRIMARY KEY NOT NULL,
+	"email" text NOT NULL,
+	"email_verified" boolean DEFAULT false NOT NULL,
+	"name" text NOT NULL,
+	"image" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "user_email_unique" UNIQUE("email")
+);
+--> statement-breakpoint
 CREATE TYPE "tenant_role" AS ENUM('viewer', 'editor', 'admin', 'owner');
 --> statement-breakpoint
 CREATE TABLE "tenant_members" (

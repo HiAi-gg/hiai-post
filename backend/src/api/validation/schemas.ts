@@ -118,3 +118,106 @@ export const bulkScheduleCampaignSchema = z.object({
   startDate: z.string().datetime(),
   intervalMinutes: z.number().int().min(1).max(1440),
 });
+
+// ─── Shared product foundation (Phase 3) ──────────────────
+// NOTE: none of these schemas accept a tenant id — the tenant is always the
+// principal-derived `ctx.tenantId` set by tenantGuard.
+
+// Optional reference link attached to a project/brand brand context.
+export const referenceLinkSchema = z
+  .object({
+    type: z.string().max(50).optional(),
+    url: z.string().url().max(2000).optional(),
+    title: z.string().max(200).optional(),
+    description: z.string().max(500).optional(),
+  })
+  .refine((r) => Object.values(r).some((v) => v !== undefined), {
+    message: "at least one of type/url/title/description is required",
+  });
+
+// NOTE: no `.default([])` here — services apply the empty-array default so
+// `partial()` updates can distinguish "omitted" from "cleared".
+export const referencesSchema = z.array(referenceLinkSchema).max(20);
+
+// Project / brand
+export const projectSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  // Brand context: language, audience, tone/voice, guidelines, business
+  // context and optional reference links (all optional).
+  defaultLanguage: z.string().min(2).max(10).nullable().optional(),
+  targetAudience: z.string().max(2000).nullable().optional(),
+  tone: z.string().max(500).nullable().optional(),
+  contentGuidelines: z.string().max(5000).nullable().optional(),
+  businessContext: z.string().max(5000).nullable().optional(),
+  references: referencesSchema.optional(),
+  status: z.enum(["active", "archived"]).optional(),
+  settings: z.record(z.unknown()).optional(),
+});
+
+export const brandSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  voice: z.string().max(500).nullable().optional(),
+  defaultLanguage: z.string().min(2).max(10).nullable().optional(),
+  targetAudience: z.string().max(2000).nullable().optional(),
+  contentGuidelines: z.string().max(5000).nullable().optional(),
+  businessContext: z.string().max(5000).nullable().optional(),
+  references: referencesSchema.optional(),
+  avatarUrl: z.string().url().max(2000).nullable().optional(),
+  settings: z.record(z.unknown()).optional(),
+});
+
+// Content items
+export const contentItemStatusEnum = z.enum([
+  "draft",
+  "in_review",
+  "approved",
+  "changes_requested",
+]);
+
+// How a content item entered the system. NOT accepted from clients on the
+// interactive surface — routes/services derive it from the acting principal
+// and override any client-provided value (see services/content.ts).
+export const contentSourceEnum = z.enum([
+  "web",
+  "api",
+  "chatgpt",
+  "automation",
+  "webhook",
+  "import",
+]);
+
+export const createContentItemSchema = z.object({
+  projectId: z.string().uuid().optional(),
+  brandId: z.string().uuid().optional(),
+  title: z.string().min(1).max(500),
+  bodyText: z.string().max(50000).nullable().optional(),
+  bodyJson: z.unknown().optional(),
+  source: contentSourceEnum.optional(),
+});
+
+export const listContentItemsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: contentItemStatusEnum.optional(),
+  projectId: z.string().uuid().optional(),
+  brandId: z.string().uuid().optional(),
+});
+
+// Revisions
+export const createRevisionSchema = z.object({
+  title: z.string().min(1).max(500).optional(),
+  bodyText: z.string().max(50000).nullable().optional(),
+  bodyJson: z.unknown().optional(),
+  changeNote: z.string().max(1000).optional(),
+});
+
+export const revisionIdParamSchema = z.object({
+  revisionId: z.string().uuid(),
+});
+
+// Approval
+export const requestChangesSchema = z.object({
+  note: z.string().min(1).max(2000),
+});

@@ -7,20 +7,20 @@ let bulkTarget = $state<string | null>(null);
 let bulkPostIds = $state("");
 let bulkStartDate = $state("");
 let bulkInterval = $state(30);
-let _bulkScheduling = $state(false);
+let bulkScheduling = $state(false);
 
 let toggling = $state<Record<string, boolean>>({});
 
-const _statusColors: Record<string, string> = {
+const statusColors: Record<string, string> = {
   draft: "bg-gray-500/10 text-gray-500",
   active: "bg-green-500/10 text-green-500",
   completed: "bg-blue-500/10 text-blue-500",
   paused: "bg-yellow-500/10 text-yellow-500",
 };
 
-const _isAdmin = data?.user?.role === "admin";
+const isAdmin = data?.user?.role === "admin";
 
-function _getProgressStats(campaign: any) {
+function getProgressStats(campaign: any) {
   const posts = campaign.posts || [];
   const published = posts.filter((p: any) => p.status === "published").length;
   const scheduled = posts.filter((p: any) => p.status === "scheduled").length;
@@ -32,7 +32,7 @@ function _getProgressStats(campaign: any) {
   return { published, scheduled, failed, remaining, total, percent };
 }
 
-async function _togglePauseResume(campaign: any) {
+async function togglePauseResume(campaign: any) {
   const id = campaign.id;
   toggling = { ...toggling, [id]: true };
   try {
@@ -50,9 +50,9 @@ async function _togglePauseResume(campaign: any) {
   }
 }
 
-async function _doBulkSchedule() {
+async function doBulkSchedule() {
   if (!bulkTarget || !bulkPostIds || !bulkStartDate) return;
-  _bulkScheduling = true;
+  bulkScheduling = true;
   try {
     const ids = bulkPostIds
       .split(",")
@@ -75,7 +75,7 @@ async function _doBulkSchedule() {
       goto("/campaigns");
     }
   } finally {
-    _bulkScheduling = false;
+    bulkScheduling = false;
   }
 }
 </script>

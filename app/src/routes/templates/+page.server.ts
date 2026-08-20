@@ -5,7 +5,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
     const res = await fetch("/api/v1/templates");
     if (res.ok) {
       const body = await res.json();
-      return { templates: body.data ?? [] };
+      return { templates: body.templates ?? [] };
     }
   } catch {}
   return { templates: [] };

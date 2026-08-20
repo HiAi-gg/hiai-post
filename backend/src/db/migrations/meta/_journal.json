@@ -8,6 +8,34 @@
       "when": 1781603488071,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786377082044,
+      "tag": "0001_rbac",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786381453326,
+      "tag": "0002_shared_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786391668822,
+      "tag": "0003_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786567925618,
+      "tag": "0004_shared_context",
+      "breakpoints": true
     }
   ]
 }

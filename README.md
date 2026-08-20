@@ -27,7 +27,7 @@ bun run dev
 
 **Health check:** `curl -fsS http://localhost:50300/api/v1/health`
 
-**Run tests:** `cd backend && npx vitest run` (58 tests, Vitest config at `backend/vitest.config.ts`)
+**Run tests:** `bun run test` (unit tests via Vitest in backend + app) or `bun run test:e2e` (end-to-end tests via bun:test)
 
 ---
 
@@ -260,6 +260,45 @@ PostgreSQL 18.4 with pgvector extension. Database: `hiai_post`.
 
 **Publish queue** is stored in Redis as sorted sets (score = unix timestamp), not in PostgreSQL.
 
+### Migration Integrity Check
+
+`bun run db:check` runs a deterministic migration-integrity check against an
+**empty** PostgreSQL database (a disposable one — see below). It:
+
+1. Validates the migration journal (`meta/_journal.json`): sequential `idx`,
+   tag ↔ file match, per-entry snapshot present, no orphaned SQL files.
+2. Applies repository migrations `0000` through current via the Drizzle
+   migrator (the same path as `db:migrate`).
+3. Verifies the expected core tables exist, including `tenant_members`, the
+   Better Auth tables (`user`, `session`, `account`, `verification`),
+   `content_items`, and `api_keys`.
+4. Detects drift: the migrated database must match the latest committed
+   snapshot (table set, columns, enums), and `src/db/schema.ts` must not drift
+   from the committed migrations. The check never writes into the repository
+   (schema drift is verified against a throwaway copy under
+   `node_modules/.migration-check` that is removed afterwards).
+
+Safety: the check **refuses to run against a database that already has
+tables**. Point `DATABASE_URL` at a fresh/disposable database:
+
+```bash
+# 1. Start a throwaway PostgreSQL (or reuse a fresh service container)
+docker run --rm -d --name hiai-post-db-check \
+  -e POSTGRES_DB=hiai_post_check -e POSTGRES_USER=hipost -e POSTGRES_PASSWORD=changeme \
+  -p 55432:5432 postgres:16-alpine
+
+# 2. Run the check
+DATABASE_URL=postgresql://hipost:changeme@localhost:55432/hiai_post_check bun run db:check
+
+# 3. Clean up
+docker rm -f hiai-post-db-check
+```
+
+`bun run db:check --reset` drops and recreates the `public` schema before
+running (destructive — only use on a throwaway database). The same check runs
+automatically in CI (`Migration integrity` job) against a fresh PostgreSQL
+service container on every push/PR.
+
 ---
 
 ## API Endpoints (overview)
@@ -382,11 +421,16 @@ NODE_ENV=development
 | `bun run build` | Build all workspaces |
 | `bun run lint` | Run Biome check across all workspaces |
 | `bun run typecheck` | Run TypeScript type checking |
-| `bun run test` | Run all tests (Vitest — config at `backend/vitest.config.ts`) |
+| `bun run test` | Run unit tests (Vitest in backend + app workspaces) |
+| `bun run test:backend` | Run backend unit tests only |
+| `bun run test:frontend` | Run frontend unit tests only |
+| `bun run test:e2e` | Run end-to-end tests (bun:test, requires dev server) |
+| `bun run test:coverage` | Run unit tests with coverage reporting |
 | `bun run db:generate` | Generate Drizzle migration |
 | `bun run db:migrate` | Run Drizzle migrations |
 | `bun run db:push` | Push schema changes (dev only) |
 | `bun run db:seed` | Seed development data |
+| `bun run db:check` | Migration integrity check (see [Database](#database)) |
 
 ---
 

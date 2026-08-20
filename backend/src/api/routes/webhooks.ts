@@ -1,13 +1,15 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { z } from "zod";
-import { posts } from "../../db/schema.js";
+import { posts, tenants } from "../../db/schema.js";
 import { getConfig } from "../../lib/config.js";
 import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
+import { observeEvent } from "../../lib/observe.js";
 
 const log = logger.child({ module: "webhooks-route" });
+const WEBHOOK_PATH = "/api/v1/webhooks/store-product";
 
 // Zod schema for the hiai-store product event payload.
 const storeProductWebhookSchema = z.object({
@@ -51,9 +53,20 @@ export const webhooksRoutes = new Elysia({ prefix: "/api/v1/webhooks" })
   .post("/store-product", async ({ body, request, set }: any) => {
     const cfg = getConfig();
     const secret = cfg.HIAI_STORE_WEBHOOK_SECRET;
+    const correlationId = randomUUID();
 
     if (!secret) {
       log.error("HIAI_STORE_WEBHOOK_SECRET is not configured; rejecting webhook");
+      observeEvent({
+        kind: "webhook",
+        outcome: "failure",
+        operation: "webhook.store_product",
+        correlationId,
+        status: 503,
+        errorCode: "NOT_CONFIGURED",
+        message: "webhook.store_product rejected: receiver not configured",
+        metadata: { path: WEBHOOK_PATH },
+      });
       set.status = 503;
       return { error: "Webhook receiver is not configured" };
     }
@@ -61,11 +74,65 @@ export const webhooksRoutes = new Elysia({ prefix: "/api/v1/webhooks" })
     const provided = request.headers.get("X-Webhook-Secret");
     if (!verifyWebhookSecret(provided, secret)) {
       log.warn({ ip: request.headers.get("x-forwarded-for") }, "Invalid webhook secret");
+      observeEvent({
+        kind: "webhook",
+        outcome: "failure",
+        operation: "webhook.store_product",
+        correlationId,
+        status: 401,
+        errorCode: "INVALID_SIGNATURE",
+        message: "webhook.store_product rejected: invalid signature",
+        metadata: { path: WEBHOOK_PATH },
+      });
       set.status = 401;
       return { error: "Invalid webhook signature" };
     }
 
     const input = storeProductWebhookSchema.parse(body);
+
+    // Controlled machine-auth compatibility path: this endpoint is
+    // authenticated by the shared `X-Webhook-Secret` (only hiai-store holds
+    // it), so the body `tenantId` is trusted as the machine's target — but
+    // never blindly: the tenant must actually exist, otherwise the insert
+    // would fail with an FK violation. Unknown tenants are rejected cleanly.
+    const [targetTenant] = await db
+      .select({ id: tenants.id, status: tenants.status })
+      .from(tenants)
+      .where(eq(tenants.id, input.tenantId))
+      .limit(1);
+
+    if (!targetTenant) {
+      log.warn({ tenantId: input.tenantId }, "Webhook rejected: tenant not found");
+      observeEvent({
+        kind: "webhook",
+        outcome: "failure",
+        operation: "webhook.store_product",
+        correlationId,
+        tenantId: input.tenantId,
+        status: 400,
+        errorCode: "TENANT_NOT_FOUND",
+        message: "webhook.store_product rejected: tenant not found",
+        metadata: { path: WEBHOOK_PATH, productId: input.productId, platform: input.platform },
+      });
+      set.status = 400;
+      return { error: "Tenant not found", code: "TENANT_NOT_FOUND" };
+    }
+    if (targetTenant.status !== "active") {
+      log.warn({ tenantId: input.tenantId }, "Webhook rejected: tenant not active");
+      observeEvent({
+        kind: "webhook",
+        outcome: "failure",
+        operation: "webhook.store_product",
+        correlationId,
+        tenantId: input.tenantId,
+        status: 400,
+        errorCode: "TENANT_SUSPENDED",
+        message: "webhook.store_product rejected: tenant not active",
+        metadata: { path: WEBHOOK_PATH, productId: input.productId, platform: input.platform },
+      });
+      set.status = 400;
+      return { error: "Tenant is not active", code: "TENANT_SUSPENDED" };
+    }
 
     // Idempotency: avoid creating duplicate drafts if hiai-store retries.
     // We hash on (tenantId, productId, platform) so re-posts for a different
@@ -86,6 +153,22 @@ export const webhooksRoutes = new Elysia({ prefix: "/api/v1/webhooks" })
         { tenantId: input.tenantId, productId: input.productId, postId: existing.id },
         "Webhook already processed; returning existing draft"
       );
+      observeEvent({
+        kind: "webhook",
+        outcome: "success",
+        operation: "webhook.store_product",
+        correlationId,
+        tenantId: input.tenantId,
+        status: 200,
+        message: "webhook.store_product deduplicated (draft already exists)",
+        metadata: {
+          path: WEBHOOK_PATH,
+          deduplicated: true,
+          postId: existing.id,
+          productId: input.productId,
+          platform: input.platform,
+        },
+      });
       set.status = 200;
       return { post: { id: existing.id }, deduplicated: true };
     }
@@ -121,6 +204,22 @@ export const webhooksRoutes = new Elysia({ prefix: "/api/v1/webhooks" })
       },
       "Created draft post from hiai-store webhook"
     );
+
+    observeEvent({
+      kind: "webhook",
+      outcome: "success",
+      operation: "webhook.store_product",
+      correlationId,
+      tenantId: input.tenantId,
+      status: 201,
+      message: "webhook.store_product processed: draft post created",
+      metadata: {
+        path: WEBHOOK_PATH,
+        postId: post.id,
+        productId: input.productId,
+        platform: input.platform,
+      },
+    });
 
     set.status = 201;
     return { post };

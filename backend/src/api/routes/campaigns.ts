@@ -4,9 +4,10 @@ import { campaigns, contentPlans, posts } from "../../db/schema.js";
 import { db } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
 import { enqueuePost, removeQueuedPost } from "../../lib/redis.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { authGuard } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
-import { tenantMiddleware } from "../middleware/tenant.js";
+import { requireViewer } from "../middleware/rbac.js";
+import { tenantGuard } from "../middleware/tenant.js";
 import {
   bulkScheduleCampaignSchema,
   createCampaignSchema,
@@ -17,8 +18,10 @@ const log = logger.child({ module: "campaigns-route" });
 
 export const campaignsRoutes = new Elysia({ prefix: "/api/v1/campaigns" })
   .use(createRateLimiter("authenticated") as any)
-  .use(authMiddleware)
-  .use(tenantMiddleware)
+  .onBeforeHandle(authGuard)
+  .onBeforeHandle(tenantGuard)
+  // Viewer by default — membership is enforced by tenantGuard.
+  .onBeforeHandle(requireViewer())
   // List campaigns
   .get("/", async ({ tenantId, query }: any) => {
     const { page, limit } = paginationSchema.parse(query);

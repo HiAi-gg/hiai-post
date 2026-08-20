@@ -9,7 +9,7 @@
  * Requires env: OAUTH_STATE_SECRET (>= 32 bytes random)
  * Falls back to BETTER_AUTH_SECRET if OAUTH_STATE_SECRET is not set.
  */
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { redis } from "./redis.js";
@@ -58,8 +58,23 @@ export interface OAuthState {
   ts: number;
   /** Tenant ID that initiated the flow (optional) */
   tenantId?: string;
+  /** User ID that initiated the flow (optional) */
+  userId?: string;
   /** Platform (e.g. "instagram", "x") */
   platform: string;
+}
+
+export interface GenerateOptions {
+  platform: string;
+  tenantId?: string;
+  userId?: string;
+  /**
+   * Generate and store a random PKCE `code_verifier` for the flow (X/Twitter).
+   * The verifier is kept server-side in the same one-time Redis record as the
+   * state and is returned to the caller so the connect route can build the
+   * `code_challenge`. It is never embedded in the state string.
+   */
+  pkce?: boolean;
 }
 
 export interface GenerateResult {
@@ -67,6 +82,22 @@ export interface GenerateResult {
   state: string;
   /** CSRF token to verify in the callback */
   csrf: string;
+  /** PKCE `code_verifier` (only when `pkce: true` was requested) */
+  pkceVerifier?: string;
+}
+
+/** Validated state payload plus any server-stored PKCE verifier. */
+export interface ValidatedState extends OAuthState {
+  /** PKCE `code_verifier` recovered from the one-time Redis record */
+  pkceVerifier?: string;
+}
+
+/**
+ * Derive the S256 PKCE `code_challenge` for a verifier, per RFC 7636:
+ * challenge = base64url(sha256(verifier)).
+ */
+export function createPkceChallenge(verifier: string): string {
+  return createHash("sha256").update(verifier).digest("base64url");
 }
 
 /**
@@ -74,31 +105,38 @@ export interface GenerateResult {
  * The returned `state` should be appended to the authorization URL.
  * The `csrf` token is also returned so callers can verify it themselves
  * if they prefer; otherwise validateState() handles it.
+ *
+ * When `pkce: true` a random `code_verifier` is generated and stored in the
+ * same one-time Redis record as the state so the callback can replay it into
+ * the token exchange (X/Twitter require PKCE).
  */
-export async function generateState(opts: {
-  platform: string;
-  tenantId?: string;
-}): Promise<GenerateResult> {
+export async function generateState(opts: GenerateOptions): Promise<GenerateResult> {
   const csrf = randomBytes(32).toString("base64url");
+  const pkceVerifier = opts.pkce ? randomBytes(32).toString("base64url") : undefined;
   const payload: OAuthState = {
     csrf,
     ts: Date.now(),
     tenantId: opts.tenantId,
+    userId: opts.userId,
     platform: opts.platform,
   };
   const encoded = b64urlEncode(JSON.stringify(payload));
   const sig = sign(encoded);
   const state = `${encoded}.${sig}`;
 
-  // Bind csrf -> state in Redis with TTL
+  // Bind csrf -> { state, verifier? } in Redis with TTL
   try {
-    await redis.setex(`${STATE_KEY_PREFIX}${csrf}`, STATE_TTL_SECONDS, state);
+    await redis.setex(
+      `${STATE_KEY_PREFIX}${csrf}`,
+      STATE_TTL_SECONDS,
+      JSON.stringify(pkceVerifier ? { state, verifier: pkceVerifier } : { state })
+    );
   } catch (err) {
     log.error({ err }, "Failed to store OAuth state in Redis");
     throw new Error("Failed to generate OAuth state");
   }
 
-  return { state, csrf };
+  return { state, csrf, pkceVerifier };
 }
 
 /**
@@ -106,10 +144,13 @@ export async function generateState(opts: {
  * - Verifies HMAC signature
  * - Verifies csrf token was previously stored
  * - Deletes the stored state (one-time use)
- * - Returns the parsed payload (including tenantId) on success
+ * - Returns the parsed payload (including tenantId/userId and any stored
+ *   PKCE verifier) on success
  * - Returns null on any failure
  */
-export async function validateState(state: string | null | undefined): Promise<OAuthState | null> {
+export async function validateState(
+  state: string | null | undefined
+): Promise<ValidatedState | null> {
   if (!state || typeof state !== "string") return null;
 
   const parts = state.split(".");
@@ -154,10 +195,24 @@ export async function validateState(state: string | null | undefined): Promise<O
     return null;
   }
 
-  if (stored !== state) {
+  // 5. Recover the stored value. New records are JSON `{ state, verifier? }`;
+  //    legacy records (pre-PKCE) are the raw state string.
+  let storedState = stored;
+  let pkceVerifier: string | undefined;
+  try {
+    const parsed = JSON.parse(stored) as { state?: string; verifier?: string };
+    if (parsed && typeof parsed === "object" && typeof parsed.state === "string") {
+      storedState = parsed.state;
+      pkceVerifier = parsed.verifier;
+    }
+  } catch {
+    // Not JSON — legacy raw state string, keep `stored` as-is.
+  }
+
+  if (storedState !== state) {
     log.warn({ platform: payload.platform }, "OAuth state mismatch (possible tampering)");
     return null;
   }
 
-  return payload;
+  return { ...payload, pkceVerifier };
 }

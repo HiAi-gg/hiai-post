@@ -17,8 +17,8 @@ let {
   }),
 } = $props();
 
-const _PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram", "multi"];
-const _platformIcons: Record<string, string> = {
+const PLATFORMS = ["instagram", "tiktok", "x", "linkedin", "facebook", "telegram", "multi"];
+const platformIcons: Record<string, string> = {
   instagram: "📸",
   tiktok: "🎵",
   x: "𝕏",
@@ -28,16 +28,16 @@ const _platformIcons: Record<string, string> = {
   multi: "🌐",
 };
 
-let _showVariables = $state(false);
+let showVariables = $state(false);
 let newVarName = $state("");
 let newVarType = $state("text");
 
-const _detectedVariables = $derived.by(() => {
+const detectedVariables = $derived.by(() => {
   const matches = template.contentText.match(/\{\{(\w+)\}\}/g) || [];
   return [...new Set(matches.map((m: string) => m.replace(/[{}]/g, "")))];
 });
 
-const _previewContent = $derived.by(() => {
+const previewContent = $derived.by(() => {
   let result = template.contentText;
   for (const v of template.variables || []) {
     result = result.replaceAll(`{{${v.name}}}`, v.defaultValue || `[${v.name}]`);
@@ -45,7 +45,7 @@ const _previewContent = $derived.by(() => {
   return result;
 });
 
-function _addVariable() {
+function addVariable() {
   if (!newVarName) return;
   const vars = template.variables || [];
   if (!vars.find((v: any) => v.name === newVarName)) {
@@ -54,7 +54,7 @@ function _addVariable() {
   newVarName = "";
 }
 
-function _removeVariable(name: string) {
+function removeVariable(name: string) {
   template.variables = (template.variables || []).filter((v: any) => v.name !== name);
 }
 </script>
@@ -89,7 +89,7 @@ function _removeVariable(name: string) {
       Content Template
       <span class="text-muted-foreground font-normal ml-1">— use {`{{variable}}`} for dynamic values</span>
     </label>
-    <textarea id="tpl-content" bind:value={template.contentText} rows={8} class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background font-mono resize-y focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors" placeholder="Hey {{customer_name}}! Check out our new {{product_name}} at {{price}}..."></textarea>
+    <textarea id="tpl-content" bind:value={template.contentText} rows={8} class="w-full px-3 py-2 border border-border rounded-md text-sm bg-background font-mono resize-y focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors" placeholder={"Hey {{customer_name}}! Check out our new {{product_name}} at {{price}}..."}></textarea>
     {#if detectedVariables.length > 0}
       <div class="flex flex-wrap gap-1 mt-1">
         {#each detectedVariables as v}

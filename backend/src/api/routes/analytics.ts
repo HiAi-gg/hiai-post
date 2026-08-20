@@ -1,7 +1,13 @@
 /**
  * Analytics routes — engagement metrics and performance dashboard.
+ *
+ * Tenant scope comes exclusively from the authenticated principal
+ * (`ctx.tenantId` set by tenantGuard). The `tenantId` query parameter
+ * is intentionally no longer accepted, so one tenant cannot read another
+ * tenant's analytics.
  */
 
+import { and, eq } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import {
   getOverviewMetrics,
@@ -9,21 +15,26 @@ import {
   getTopPosts,
 } from "../../core/analytics/aggregator.js";
 import { getBestPostingTimes, type Platform } from "../../core/analytics/best-time.js";
+import { db } from "../../db/index.js";
+import { postAnalytics, posts } from "../../db/schema.js";
 import { logger } from "../../lib/logger.js";
 import { getCrossPlatformMetrics } from "../../modules/analytics/cross-platform.js";
+import { authGuard } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
+import { requireViewer } from "../middleware/rbac.js";
+import { tenantGuard } from "../middleware/tenant.js";
 
 export function analyticsRoutes() {
   return new Elysia({ prefix: "/api/v1/analytics" })
+    .use(createRateLimiter("authenticated") as any)
+    .onBeforeHandle(authGuard)
+    .onBeforeHandle(tenantGuard)
+    .onBeforeHandle(requireViewer())
+
     .get(
       "/overview",
-      async ({ query, set }) => {
+      async ({ tenantId, query, set }: any) => {
         try {
-          const tenantId = query.tenantId;
-          if (!tenantId) {
-            set.status = 400;
-            return { error: "tenantId is required" };
-          }
-
           const dateFrom = query.from ? new Date(query.from) : undefined;
           const dateTo = query.to ? new Date(query.to) : undefined;
 
@@ -38,7 +49,6 @@ export function analyticsRoutes() {
       },
       {
         query: t.Object({
-          tenantId: t.String(),
           from: t.Optional(t.String()),
           to: t.Optional(t.String()),
         }),
@@ -47,14 +57,8 @@ export function analyticsRoutes() {
 
     .get(
       "/platforms",
-      async ({ query, set }) => {
+      async ({ tenantId, query, set }: any) => {
         try {
-          const tenantId = query.tenantId;
-          if (!tenantId) {
-            set.status = 400;
-            return { error: "tenantId is required" };
-          }
-
           const dateFrom = query.from ? new Date(query.from) : undefined;
           const dateTo = query.to ? new Date(query.to) : undefined;
 
@@ -68,7 +72,6 @@ export function analyticsRoutes() {
       },
       {
         query: t.Object({
-          tenantId: t.String(),
           from: t.Optional(t.String()),
           to: t.Optional(t.String()),
         }),
@@ -77,20 +80,25 @@ export function analyticsRoutes() {
 
     .get(
       "/posts/:postId",
-      async ({ params, set }) => {
+      async ({ params, tenantId, set }: any) => {
         try {
-          // Get analytics for a single post
-          const { postId } = params;
+          // Analytics for a single post, scoped to the caller's tenant: the
+          // post must belong to the derived tenant, otherwise 404.
+          const [post] = await db
+            .select({ id: posts.id })
+            .from(posts)
+            .where(and(eq(posts.id, params.postId), eq(posts.tenantId, tenantId)))
+            .limit(1);
 
-          // Direct query for single post analytics
-          const { db } = await import("../../db/index.js");
-          const { postAnalytics } = await import("../../db/schema.js");
-          const { eq } = await import("drizzle-orm");
+          if (!post) {
+            set.status = 404;
+            return { error: "Post not found" };
+          }
 
           const analytics = await db
             .select()
             .from(postAnalytics)
-            .where(eq(postAnalytics.postId, postId));
+            .where(eq(postAnalytics.postId, params.postId));
 
           if (!analytics.length) {
             return {
@@ -116,14 +124,8 @@ export function analyticsRoutes() {
 
     .get(
       "/top-posts",
-      async ({ query, set }) => {
+      async ({ tenantId, query, set }: any) => {
         try {
-          const tenantId = query.tenantId;
-          if (!tenantId) {
-            set.status = 400;
-            return { error: "tenantId is required" };
-          }
-
           const limit = query.limit ? parseInt(query.limit, 10) : 10;
           const dateFrom = query.from ? new Date(query.from) : undefined;
           const dateTo = query.to ? new Date(query.to) : undefined;
@@ -138,7 +140,6 @@ export function analyticsRoutes() {
       },
       {
         query: t.Object({
-          tenantId: t.String(),
           limit: t.Optional(t.String()),
           from: t.Optional(t.String()),
           to: t.Optional(t.String()),
@@ -148,14 +149,8 @@ export function analyticsRoutes() {
 
     .get(
       "/best-times",
-      async ({ query, set }) => {
+      async ({ tenantId, query, set }: any) => {
         try {
-          const tenantId = query.tenantId;
-          if (!tenantId) {
-            set.status = 400;
-            return { error: "tenantId is required" };
-          }
-
           const platform = query.platform as Platform | undefined;
           const slots = await getBestPostingTimes(tenantId, platform);
           return { success: true, slots };
@@ -168,7 +163,6 @@ export function analyticsRoutes() {
       },
       {
         query: t.Object({
-          tenantId: t.String(),
           platform: t.Optional(t.String()),
         }),
       }
@@ -176,14 +170,8 @@ export function analyticsRoutes() {
 
     .get(
       "/cross-platform",
-      async ({ query, set }) => {
+      async ({ tenantId, query, set }: any) => {
         try {
-          const tenantId = query.tenantId;
-          if (!tenantId) {
-            set.status = 400;
-            return { error: "tenantId is required" };
-          }
-
           const dateFrom = query.from ? new Date(query.from) : undefined;
           const dateTo = query.to ? new Date(query.to) : undefined;
 
@@ -198,7 +186,6 @@ export function analyticsRoutes() {
       },
       {
         query: t.Object({
-          tenantId: t.String(),
           from: t.Optional(t.String()),
           to: t.Optional(t.String()),
         }),

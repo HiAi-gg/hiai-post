@@ -1,9 +1,9 @@
 <script lang="ts">
-import { platformLogoColors } from "../platform-brand-colors";
+import { platformFallbackColor, platformLogoColors } from "../platform-brand-colors";
 
 let { account, onConnect, onDisconnect } = $props();
 
-const _COLORS: Record<string, string> = platformLogoColors;
+const COLORS: Record<string, string> = platformLogoColors;
 </script>
 
 <div class="bg-card border border-border rounded-lg p-4 flex items-center gap-4">

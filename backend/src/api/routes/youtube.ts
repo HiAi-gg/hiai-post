@@ -19,9 +19,9 @@ import { config as appConfig } from "../../lib/config.js";
 import { db } from "../../lib/db.js";
 import { decryptToken, encryptToken } from "../../lib/encryption.js";
 import { logger } from "../../lib/logger.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { authGuard } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
-import { tenantMiddleware } from "../middleware/tenant.js";
+import { tenantGuard } from "../middleware/tenant.js";
 
 const log = logger.child({ module: "youtube-route" });
 
@@ -123,8 +123,8 @@ async function getDecryptedAccessToken(
 
 export const youtubeRoutes = new Elysia({ prefix: "/api/v1/youtube" })
   .use(createRateLimiter("authenticated") as any)
-  .use(authMiddleware)
-  .use(tenantMiddleware)
+  .onBeforeHandle(authGuard)
+  .onBeforeHandle(tenantGuard)
   .get("/connect", ({ query, set }: any) => {
     const oauthConfig = getOAuthConfig();
     if (!oauthConfig) {

@@ -1,4 +1,6 @@
 <script lang="ts">
+import { platformBrandColors, platformFallbackColor } from "../platform-brand-colors";
+
 type Slot = {
   platform: string;
   hour: number;
@@ -16,7 +18,7 @@ let {
 } = $props();
 
 const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const _hours = Array.from({ length: 24 }, (_, h) => h);
+const hours = Array.from({ length: 24 }, (_, h) => h);
 
 // Build a 7×24 lookup keyed by `${dayOfWeek}:${hour}`.
 const cellMap = $derived.by(() => {
@@ -35,7 +37,7 @@ const cellMap = $derived.by(() => {
 const maxRate = $derived(Math.max(0, ...Array.from(cellMap.values()).map((c) => c.rate)));
 
 // Per-platform top 3 list (slot array already arrives pre-sorted per platform).
-const _topPerPlatform = $derived.by(() => {
+const topPerPlatform = $derived.by(() => {
   const grouped = new Map<string, Slot[]>();
   for (const s of slots) {
     const arr = grouped.get(s.platform) ?? [];
@@ -48,7 +50,7 @@ const _topPerPlatform = $derived.by(() => {
   }));
 });
 
-function _colorForRate(rate: number): string {
+function colorForRate(rate: number): string {
   if (maxRate <= 0) return "transparent";
   const t = Math.max(0, Math.min(1, rate / maxRate));
   // Gradient from muted blue (low) to vivid primary (high).
@@ -64,7 +66,7 @@ function formatHour(h: number): string {
   return h < 12 ? `${h}a` : `${h - 12}p`;
 }
 
-function _formatSlot(s: Slot): string {
+function formatSlot(s: Slot): string {
   return `${days[s.dayOfWeek]} ${formatHour(s.hour)} · ${s.avgEngagementRate.toFixed(1)}%`;
 }
 </script>

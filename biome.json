@@ -2,7 +2,13 @@
   "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
   "files": {
     "ignoreUnknown": true,
-    "includes": ["backend/src/**/*.ts", "app/src/**/*.ts", "app/src/**/*.svelte", "biome.json"]
+    "includes": [
+      "backend/src/**/*.ts",
+      "backend/scripts/**/*.ts",
+      "app/src/**/*.ts",
+      "app/src/**/*.svelte",
+      "biome.json"
+    ]
   },
   "formatter": {
     "enabled": true,

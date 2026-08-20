@@ -1,5 +1,5 @@
 <script lang="ts">
-import { platformBrandColors } from "../platform-brand-colors";
+import { platformBrandColors, platformFallbackColor } from "../platform-brand-colors";
 
 interface Post {
   id: string;
@@ -11,16 +11,21 @@ interface Post {
   status: "draft" | "scheduled" | "published" | "failed";
 }
 
-let { posts = [] as Post[], onDateClick, onPostClick, onPostMove } = $props();
+let {
+  posts = [] as Post[],
+  onDateClick = () => {},
+  onPostClick = () => {},
+  onPostMove = () => {},
+} = $props();
 
 let currentDate = $state(new Date());
 let view = $state<"month" | "week" | "day">("month");
 let dragTarget = $state<string | null>(null);
 let dragOver = $state<string | null>(null);
 
-const _platformColors: Record<string, string> = platformBrandColors;
+const platformColors: Record<string, string> = platformBrandColors;
 
-const _platformIcons: Record<string, string> = {
+const platformIcons: Record<string, string> = {
   instagram: "📸",
   tiktok: "🎵",
   x: "𝕏",
@@ -29,7 +34,7 @@ const _platformIcons: Record<string, string> = {
   telegram: "✈️",
 };
 
-const _statusStyles: Record<string, string> = {
+const statusStyles: Record<string, string> = {
   draft: "opacity-60 border-dashed",
   scheduled: "",
   published: "bg-green-500/10 text-green-600",
@@ -40,7 +45,7 @@ const monthStart = $derived(new Date(currentDate.getFullYear(), currentDate.getM
 const monthEnd = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
 const startDay = $derived(monthStart.getDay());
 
-const _days = $derived.by(() => {
+const days = $derived.by(() => {
   const result: Array<{ date: Date; posts: Post[] }> = [];
   for (let i = 0; i < startDay; i++) {
     result.push({ date: new Date(monthStart.getTime() - (startDay - i) * 86400000), posts: [] });
@@ -65,7 +70,7 @@ const weekStart = $derived.by(() => {
   return d;
 });
 
-const _weekDays = $derived.by(() => {
+const weekDays = $derived.by(() => {
   const result: Array<{ date: Date; posts: Post[] }> = [];
   for (let i = 0; i < 7; i++) {
     const date = new Date(weekStart);
@@ -86,7 +91,7 @@ const dayDate = $derived.by(() => {
   return d;
 });
 
-const _dayPosts = $derived.by(() => {
+const dayPosts = $derived.by(() => {
   const dateStr = dayDate.toISOString().slice(0, 10);
   return posts.filter((p: Post) => p.date === dateStr);
 });
@@ -94,12 +99,12 @@ const _dayPosts = $derived.by(() => {
 // Day-view derived values (replaces inline `{@const}` which Svelte 5 forbids
 // outside direct children of `{#if}` / `{#each}` / etc.).
 const dayDateStr = $derived(dayDate.toISOString().slice(0, 10));
-const _dayIsDropTarget = $derived(dragOver === dayDateStr);
+const dayIsDropTarget = $derived(dragOver === dayDateStr);
 
 // Hourly slots: 0..23
-const _HOURS = Array.from({ length: 24 }, (_, h) => h);
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
-function _postsForHour(list: Post[], hour: number): Post[] {
+function postsForHour(list: Post[], hour: number): Post[] {
   return list.filter((p) => {
     if (!p.scheduledTime) return hour === 9; // default bucket at 9am when no time set
     const hh = parseInt(p.scheduledTime.split(":")[0], 10);
@@ -123,7 +128,7 @@ const MONTHS = [
 ];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function _prev() {
+function prev() {
   if (view === "month") {
     currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
   } else if (view === "week") {
@@ -141,7 +146,7 @@ function _prev() {
   }
 }
 
-function _next() {
+function next() {
   if (view === "month") {
     currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
   } else if (view === "week") {
@@ -159,13 +164,13 @@ function _next() {
   }
 }
 
-function _today() {
+function today() {
   currentDate = new Date();
 }
 
-const _monthLabel = $derived(`${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`);
+const monthLabel = $derived(`${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`);
 
-const _weekLabel = $derived.by(() => {
+const weekLabel = $derived.by(() => {
   const end = new Date(weekStart);
   end.setDate(weekStart.getDate() + 6);
   const sameMonth = weekStart.getMonth() === end.getMonth();
@@ -179,29 +184,29 @@ const _weekLabel = $derived.by(() => {
   return `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()}, ${weekStart.getFullYear()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
 });
 
-const _dayLabel = $derived(
+const dayLabel = $derived(
   `${DAYS[dayDate.getDay()]}, ${MONTHS[dayDate.getMonth()]} ${dayDate.getDate()}, ${dayDate.getFullYear()}`
 );
 
-function _formatHour(h: number): string {
+function formatHour(h: number): string {
   if (h === 0) return "12 AM";
   if (h < 12) return `${h} AM`;
   if (h === 12) return "12 PM";
   return `${h - 12} PM`;
 }
 
-function _handleDragStart(e: DragEvent, postId: string) {
+function handleDragStart(e: DragEvent, postId: string) {
   dragTarget = postId;
   if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
 }
 
-function _handleDragOver(e: DragEvent, dateStr: string) {
+function handleDragOver(e: DragEvent, dateStr: string) {
   e.preventDefault();
   dragOver = dateStr;
   if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 }
 
-function _handleDrop(e: DragEvent, dateStr: string) {
+function handleDrop(e: DragEvent, dateStr: string) {
   e.preventDefault();
   if (dragTarget && onPostMove) {
     onPostMove(dragTarget, dateStr);
@@ -210,21 +215,21 @@ function _handleDrop(e: DragEvent, dateStr: string) {
   dragOver = null;
 }
 
-function _handleDragEnd() {
+function handleDragEnd() {
   dragTarget = null;
   dragOver = null;
 }
 
-function _handleDateClick(dateStr: string) {
+function handleDateClick(dateStr: string) {
   if (onDateClick) onDateClick(dateStr);
 }
 
-function _handlePostClick(e: Event, postId: string) {
+function handlePostClick(e: Event, postId: string) {
   e.stopPropagation();
   if (onPostClick) onPostClick(postId);
 }
 
-function _truncate(text: string, max: number): string {
+function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}...` : text;
 }
 </script>

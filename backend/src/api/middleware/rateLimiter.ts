@@ -14,6 +14,9 @@ const DEFAULT_CONFIGS: Record<string, RateLimitConfig> = {
   authenticated: { windowMs: 60 * 1000, max: 300, endpoint: "authenticated" },
   publish: { windowMs: 60 * 1000, max: 20, endpoint: "publish" },
   generate: { windowMs: 60 * 60 * 1000, max: 50, endpoint: "generate" },
+  // MCP tool calls are typically LLM-batched; a generous per-minute cap
+  // still bounds a misbehaving machine principal.
+  mcp: { windowMs: 60 * 1000, max: 600, endpoint: "mcp" },
 };
 
 function getClientIp(request: Request): string {
@@ -28,7 +31,7 @@ function getClientIp(request: Request): string {
  * Extract tenant ID from the auth context.
  *
  * Tries, in order:
- *   1. X-Tenant-Id header (matches `tenantMiddleware` contract).
+ *   1. X-Tenant-Id header (matches `tenantGuard` contract).
  *   2. `tenant_id` claim from a Bearer JWT (HS256, no signature verification
  *      here — this is best-effort and used only for rate-limit key partitioning,
  *      not for authorization).

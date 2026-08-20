@@ -1,0 +1,17 @@
+[test]
+# Bare `bun test` at root is scoped to E2E only (uses bun:test, not vitest).
+# Unit tests run via `bun run test` (npm script → vitest in each workspace).
+# E2E tests skip only when HIAI_POST_E2E_SKIP=1; when the frontend/API
+# servers are unreachable the suite fails (never silently skips).
+#
+# Note: bun's bunfig.toml `[test]` section has no `include` key (verified on
+# bun 1.3.14 — unknown keys are silently ignored), so discovery is restricted
+# with `pathIgnorePatterns`: every `*.test.*` file is a vitest unit suite and
+# is excluded from `bun test`; only the e2e suite (`app/tests/e2e/**/*.spec.ts`)
+# remains discoverable.
+pathIgnorePatterns = [
+  "**/*.test.ts",
+  "**/*.test.tsx",
+  "**/*.test.js",
+  "**/*.test.jsx",
+]

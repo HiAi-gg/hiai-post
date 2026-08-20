@@ -1,4 +1,6 @@
 <script lang="ts">
+import { StatsCard, StatusBadge } from "@hiai/ui";
+import Calendar from "$components/Calendar.svelte";
 import { api } from "$lib/api";
 import type { PageData } from "./$types";
 
@@ -24,13 +26,13 @@ const connectedPlatforms = $derived(
 );
 
 const allPlatforms = ["instagram", "x", "linkedin", "tiktok", "facebook", "telegram"];
-const _disconnectedPlatforms = $derived(
+const disconnectedPlatforms = $derived(
   allPlatforms.filter((p) => !connectedPlatforms.some((c: any) => c.platform === p))
 );
 
 // Next scheduled post countdown
 const nextPost = $derived(data.recentPosts.length > 0 ? data.recentPosts[0] : null);
-const _nextPostTime = $derived(nextPost?.scheduledAt ? new Date(nextPost.scheduledAt) : null);
+const nextPostTime = $derived(nextPost?.scheduledAt ? new Date(nextPost.scheduledAt) : null);
 
 // Summary stats fetched from the API client (app/src/lib/api.ts).
 // Loaded client-side so the dashboard hydrates with live counts even when
@@ -43,16 +45,20 @@ type SummaryStats = {
   connectedAccounts: number;
 };
 
-let _stats: SummaryStats = $state({
+let stats: SummaryStats = $state({
   totalPosts: 0,
   scheduled: 0,
   published: 0,
   connectedAccounts: 0,
 });
-let _statsLoading = $state(true);
-let _statsError: string | null = $state(null);
+let statsLoading = $state(true);
+let statsError: string | null = $state(null);
 
 $effect(() => {
+  if (!data.user) {
+    statsLoading = false;
+    return;
+  }
   let cancelled = false;
   (async () => {
     try {
@@ -60,22 +66,22 @@ $effect(() => {
         api.get<{ pagination?: { total?: number } }>("/api/v1/posts?limit=1"),
         api.get<{ pagination?: { total?: number } }>("/api/v1/posts?limit=1&status=scheduled"),
         api.get<{ pagination?: { total?: number } }>("/api/v1/posts?limit=1&status=published"),
-        api.get<{ data?: Array<{ status?: string }> }>("/api/v1/accounts"),
+        api.get<{ accounts?: Array<{ status?: string }> }>("/api/v1/accounts"),
       ]);
       if (cancelled) return;
-      const accounts = accountsRes.data ?? [];
-      _stats = {
+      const accounts = accountsRes.accounts ?? [];
+      stats = {
         totalPosts: totalRes.pagination?.total ?? 0,
         scheduled: scheduledRes.pagination?.total ?? 0,
         published: publishedRes.pagination?.total ?? 0,
         connectedAccounts: accounts.filter((a) => a.status === "active").length,
       };
-      _statsError = null;
+      statsError = null;
     } catch (err) {
       if (cancelled) return;
-      _statsError = err instanceof Error ? err.message : "Failed to load summary";
+      statsError = err instanceof Error ? err.message : "Failed to load summary";
     } finally {
-      if (!cancelled) _statsLoading = false;
+      if (!cancelled) statsLoading = false;
     }
   })();
   return () => {

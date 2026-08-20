@@ -2,6 +2,7 @@
  * Tests for the OAuth state store (CWE-352 mitigation).
  * Run with: npx vitest run src/lib/oauth-state.test.ts
  */
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const store = new Map<string, string>();
@@ -55,7 +56,7 @@ vi.mock("../lib/redis.js", () => ({
 
 process.env.OAUTH_STATE_SECRET = "a".repeat(48);
 
-const { generateState, validateState } = await import("./oauth-state.js");
+const { createPkceChallenge, generateState, validateState } = await import("./oauth-state.js");
 
 describe("oauth-state", () => {
   beforeEach(() => {
@@ -115,5 +116,78 @@ describe("oauth-state", () => {
     const payload = await validateState(state);
     expect(payload?.tenantId).toBe("tenant-123");
     expect(payload?.platform).toBe("youtube");
+  });
+
+  it("preserves userId through round-trip", async () => {
+    const { state } = await generateState({
+      platform: "instagram",
+      tenantId: "tenant-123",
+      userId: "user-456",
+    });
+    const payload = await validateState(state);
+    expect(payload?.tenantId).toBe("tenant-123");
+    expect(payload?.userId).toBe("user-456");
+  });
+
+  it("stores a PKCE verifier and returns it on validation (X/Twitter flow)", async () => {
+    const { state, csrf, pkceVerifier } = await generateState({
+      platform: "x",
+      tenantId: "tenant-123",
+      pkce: true,
+    });
+    expect(pkceVerifier).toBeDefined();
+    expect(pkceVerifier!.length).toBeGreaterThan(32);
+
+    // Verifier must NOT be embedded in the signed state string itself.
+    expect(state).not.toContain(pkceVerifier!);
+
+    // The Redis record is a JSON envelope { state, verifier }.
+    const storedRaw = store.get(`oauth:state:${csrf}`);
+    expect(storedRaw).toBeDefined();
+    const stored = JSON.parse(storedRaw!) as { state: string; verifier?: string };
+    expect(stored.state).toBe(state);
+    expect(stored.verifier).toBe(pkceVerifier);
+
+    const payload = await validateState(state);
+    expect(payload?.platform).toBe("x");
+    expect(payload?.pkceVerifier).toBe(pkceVerifier);
+  });
+
+  it("does not return a PKCE verifier when the flow did not request one", async () => {
+    const { state } = await generateState({ platform: "linkedin", pkce: false });
+    const payload = await validateState(state);
+    expect(payload?.platform).toBe("linkedin");
+    expect(payload?.pkceVerifier).toBeUndefined();
+  });
+
+  it("consumes the PKCE verifier one-time together with the state", async () => {
+    const { state } = await generateState({ platform: "x", pkce: true });
+    const first = await validateState(state);
+    expect(first?.pkceVerifier).toBeDefined();
+    const second = await validateState(state);
+    expect(second).toBeNull();
+  });
+
+  it("still accepts a legacy raw-state Redis record (pre-PKCE format)", async () => {
+    // Simulate a record written before the { state, verifier } JSON envelope.
+    const { state, csrf } = await generateState({ platform: "tiktok" });
+    store.set(`oauth:state:${csrf}`, state);
+    const payload = await validateState(state);
+    expect(payload?.platform).toBe("tiktok");
+    expect(payload?.pkceVerifier).toBeUndefined();
+  });
+
+  it("rejects a tampered JSON record whose state does not match", async () => {
+    const { state, csrf } = await generateState({ platform: "x", pkce: true });
+    const forged = JSON.stringify({ state: `${state.slice(0, -3)}AAA`, verifier: "v" });
+    store.set(`oauth:state:${csrf}`, forged);
+    expect(await validateState(state)).toBeNull();
+  });
+
+  it("derives the S256 PKCE challenge per RFC 7636", async () => {
+    const verifier = "db8f9c1e-2f6b-4a5d-9c3e-1a2b3c4d5e6f-verifier";
+    const expected = createHash("sha256").update(verifier).digest("base64url");
+    expect(createPkceChallenge(verifier)).toBe(expected);
+    expect(createPkceChallenge(verifier)).not.toBe(verifier);
   });
 });

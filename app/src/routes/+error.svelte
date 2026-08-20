@@ -3,18 +3,18 @@ import { page } from "$app/stores";
 
 let { error } = $props();
 
-const _status = $derived($page.status);
-const _message = $derived($page.error?.message ?? error?.message ?? "Something went wrong.");
-const _isDev = $derived(import.meta.env.DEV);
-const _stack = $derived(error?.stack ?? "");
+const status = $derived($page.status);
+const message = $derived($page.error?.message ?? error?.message ?? "Something went wrong.");
+const isDev = $derived(import.meta.env.DEV);
+const stack = $derived(error?.stack ?? "");
 
-function _retry() {
+function retry() {
   if (typeof window !== "undefined") {
     window.location.reload();
   }
 }
 
-function _goHome() {
+function goHome() {
   if (typeof window !== "undefined") {
     window.location.href = "/";
   }

@@ -50,6 +50,18 @@ const configSchema = z.object({
   // Web search (Tavily) — optional; web-search tool falls back to empty results when unset
   TAVILY_API_KEY: z.string().default(""),
 
+  // hiai-kit integration boundary (server-side) — capability API
+  // (/api/v1/capabilities) + carousel jobs (/api/v1/carousel) on the peer
+  // hiai-kit backend (default port 3000). HIAI_KIT_COOKIE / HIAI_KIT_TOKEN
+  // are OPTIONAL server-side credentials forwarded to hiai-kit (as `Cookie`
+  // / `Authorization: Bearer` headers); hiai-kit protects writes with a
+  // Better Auth session, so without a configured session protected calls
+  // fail with 401 (mapped to HIAI_KIT_ERROR). Secrets are never logged.
+  HIAI_KIT_URL: z.string().default("http://localhost:3000"),
+  HIAI_KIT_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  HIAI_KIT_COOKIE: z.string().optional(),
+  HIAI_KIT_TOKEN: z.string().optional(),
+
   // Ports
   API_PORT: z.coerce.number().default(50300),
   FRONTEND_PORT: z.coerce.number().default(50301),
@@ -59,6 +71,23 @@ const configSchema = z.object({
 
   // Observability
   SENTRY_DSN: z.string().default(""),
+
+  // hiai-observe telemetry (optional) — structured Writer/Carousel/API/MCP
+  // success/failure events via the OTLP /v1/logs endpoint with the verified
+  // Bearer API-key contract (`Authorization: Bearer <key>`). Mirrored by
+  // lib/observe.ts, which reads these directly from process.env so telemetry
+  // can never fail product startup; all default to unset/disabled.
+  HIAI_OBSERVE_URL: z.string().default("http://localhost:8001"),
+  HIAI_OBSERVE_API_KEY: z.string().default(""),
+  HIAI_OBSERVE_PROJECT: z.string().default(""),
+  HIAI_OBSERVE_TIMEOUT_MS: z.coerce.number().int().positive().default(2000),
+
+  // Postiz integration boundary (optional) — typed publication-intent
+  // submission / status-sync client only; NOT wired to publishing and NOT a
+  // live adapter. All defaults unset → the client reports NOT_CONFIGURED.
+  POSTIZ_API_URL: z.string().default(""),
+  POSTIZ_API_KEY: z.string().default(""),
+  POSTIZ_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
 });
 
 export type Config = z.infer<typeof configSchema>;
