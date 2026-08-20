@@ -1,0 +1,19 @@
+.gitignore
+  s_307e2ff77bede5::t_dbd76ccc264dc4 51-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "0efebf7ce603fec5de02ea7ae1068030480ace2a",
+  "prompts": {},
+  "sessions": {
+    "s_307e2ff77bede5": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "f4bb6bed-66fd-4c7b-ac12-44fd0b6eae53",
+        "model": "cursor-grok-4.6-medium"
+      },
+      "human_author": "vlgalib <vlgalib@users.noreply.github.com>"
+    }
+  }
+}
