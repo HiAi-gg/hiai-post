@@ -23,11 +23,14 @@ import { HiaiKitError, type HiaiKitErrorDetails } from "./errors.js";
 import { hiaiKitErrorBodySchema } from "./schemas.js";
 
 export interface HiaiKitRequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT";
   path: string;
   body?: unknown;
   /** Return raw bytes (e.g. carousel cover PNG) instead of JSON. */
   binary?: boolean;
+  /** Raw request body (PNG upload). Skips JSON.stringify. */
+  binaryBody?: Uint8Array | ArrayBuffer;
+  contentType?: string;
 }
 
 export interface HiaiKitJsonResult<T = unknown> {
@@ -112,7 +115,11 @@ async function requestCore(
   headers.set("x-trace-id", correlationId);
   if (config.cookie) headers.set("Cookie", config.cookie);
   if (config.token) headers.set("Authorization", `Bearer ${config.token}`);
-  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  if (options.binaryBody !== undefined) {
+    headers.set("Content-Type", options.contentType ?? "application/octet-stream");
+  } else if (options.body !== undefined) {
+    headers.set("Content-Type", options.contentType ?? "application/json");
+  }
 
   const startedAt = Date.now();
   const observeBase = {
@@ -130,10 +137,16 @@ async function requestCore(
   try {
     let response: Response;
     try {
+      const requestBody =
+        options.binaryBody !== undefined
+          ? options.binaryBody
+          : options.body !== undefined
+            ? JSON.stringify(options.body)
+            : undefined;
       response = await fetch(url, {
         method,
         headers,
-        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        body: requestBody as BodyInit | undefined,
         signal: AbortSignal.timeout(config.timeoutMs),
       });
     } catch (error) {

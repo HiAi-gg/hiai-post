@@ -264,6 +264,49 @@ export async function saveCarouselSlideDocument(
   });
 }
 
+export function carouselCoverUrl(id: string): string {
+  return `/api/v1/carousels/${encodeURIComponent(id)}/cover`;
+}
+
+export function carouselSlidePngUrl(id: string, slideNumber: number): string {
+  return `/api/v1/carousels/${encodeURIComponent(id)}/slides/${slideNumber}/png`;
+}
+
+/** Upload a Konva-exported PNG. The file exists on kit only after this succeeds. */
+export async function uploadCarouselSlidePng(
+  id: string,
+  slideNumber: number,
+  bytes: Uint8Array
+): Promise<{ ok: true; fileName: string }> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/v1/carousels/${encodeURIComponent(id)}/slides/${slideNumber}/png`, {
+      method: "PUT",
+      headers: { "Content-Type": "image/png" },
+      body: (() => {
+        const copy = new ArrayBuffer(bytes.byteLength);
+        new Uint8Array(copy).set(bytes);
+        return new Blob([copy], { type: "image/png" });
+      })(),
+    });
+  } catch (error) {
+    throw new CarouselApiError(
+      `Network error uploading slide PNG: ${error instanceof Error ? error.message : String(error)}`,
+      0
+    );
+  }
+  const payload = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    const body = payload as { message?: unknown; code?: unknown } | undefined;
+    throw new CarouselApiError(
+      typeof body?.message === "string" ? body.message : `HTTP ${response.status}`,
+      response.status,
+      typeof body?.code === "string" ? body.code : undefined
+    );
+  }
+  return payload as { ok: true; fileName: string };
+}
+
 export async function submitCarouselForReview(id: string): Promise<{ item: CarouselItem }> {
   return apiFetch(`/${encodeURIComponent(id)}/submit-review`, { method: "POST" });
 }
@@ -280,4 +323,23 @@ export async function requestCarouselChanges(
 
 export async function approveCarousel(id: string): Promise<{ item: CarouselItem }> {
   return apiFetch(`/${encodeURIComponent(id)}/approve`, { method: "POST" });
+}
+
+export async function addCarouselBlankSlide(id: string): Promise<{
+  item: CarouselItem;
+  revision: CarouselRevision;
+  slideNumber: number;
+  slide: CarouselSlideData;
+}> {
+  return apiFetch(`/${encodeURIComponent(id)}/slides/add`, { method: "POST" });
+}
+
+export async function editCarouselCover(
+  id: string,
+  description: string
+): Promise<{ item: CarouselItem; coverImagePath: string; updatedAt: string }> {
+  return apiFetch(`/${encodeURIComponent(id)}/cover/edit`, {
+    method: "POST",
+    body: JSON.stringify({ description }),
+  });
 }

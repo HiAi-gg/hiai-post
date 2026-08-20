@@ -308,6 +308,18 @@ describe("production composition: POST /api/v1/carousels", () => {
   });
 });
 
+describe("production composition: POST /api/v1/marketing/pipeline", () => {
+  it("is reachable — unauthenticated returns 401 (not 404)", async () => {
+    const { status, body } = await request("/api/v1/marketing/pipeline", {
+      method: "POST",
+      headers: { "X-Tenant-Id": state.TENANT_A },
+      body: { chatId: 1, skipPublish: true, topic: "AI tooling trends" },
+    });
+    expect(status).toBe(401);
+    expect(body.code).toBe("UNAUTHENTICATED");
+  });
+});
+
 describe("production composition: route ordering regression", () => {
   it("existing protected routes still resolve (GET /api/v1/content)", async () => {
     const { status, body } = await request("/api/v1/content", {

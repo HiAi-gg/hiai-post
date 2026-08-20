@@ -42,6 +42,11 @@ const state = vi.hoisted(() => {
       listJobs: vi.fn(),
       getJobBySlug: vi.fn(),
       getCover: vi.fn(),
+      saveSlideJson: vi.fn(),
+      uploadSlidePng: vi.fn(),
+      getSlidePng: vi.fn(),
+      addBlankSlide: vi.fn(),
+      editCover: vi.fn(),
     },
   };
   return {
@@ -294,6 +299,22 @@ function stubDoneJob() {
     width: 1080,
     height: 1350,
     background: { color: "#111" },
+  });
+  state.client.carousel.saveSlideJson.mockResolvedValue({
+    ok: true,
+    json: validSlideDoc,
+  });
+  state.client.carousel.uploadSlidePng.mockResolvedValue({
+    ok: true,
+    fileName: "slide_1.png",
+  });
+  state.client.carousel.addBlankSlide.mockResolvedValue({
+    slideNumber: 3,
+    json: validSlideDoc,
+  });
+  state.client.carousel.editCover.mockResolvedValue({
+    coverImagePath: "cover.png",
+    updatedAt: "2026-01-02T00:00:00.000Z",
   });
 }
 
@@ -820,5 +841,64 @@ describe("slide document save over HTTP", () => {
     });
     expect(fetched.body.item.currentRevisionNumber).toBe(1);
     expect(fetched.body.item.bodyJson.slides[0].doc).toBeUndefined();
+  });
+});
+
+describe("add blank slide and cover edit", () => {
+  it("adds a blank slide and appends a revision", async () => {
+    const created = await request("/api/v1/carousels", {
+      method: "POST",
+      headers: auth("editor-token", state.TENANT_A),
+      body: carouselInput,
+    });
+    const itemId = created.body.item.id;
+
+    const added = await request(`/api/v1/carousels/${itemId}/slides/add`, {
+      method: "POST",
+      headers: auth("editor-token", state.TENANT_A),
+    });
+    expect(added.status).toBe(200);
+    expect(added.body.slideNumber).toBe(3);
+    expect(added.body.item.bodyJson.slides).toHaveLength(3);
+    expect(state.client.carousel.addBlankSlide).toHaveBeenCalledWith(state.JOB_ID);
+
+    const revisions = await request(`/api/v1/carousels/${itemId}/revisions`, {
+      headers: auth("editor-token", state.TENANT_A),
+    });
+    expect(revisions.body.revisions).toHaveLength(2);
+    expect(revisions.body.revisions[0].changeNote).toBe("Blank slide 3 added");
+  });
+
+  it("edits the cover through the kit adapter", async () => {
+    const created = await request("/api/v1/carousels", {
+      method: "POST",
+      headers: auth("editor-token", state.TENANT_A),
+      body: carouselInput,
+    });
+    const itemId = created.body.item.id;
+
+    const edited = await request(`/api/v1/carousels/${itemId}/cover/edit`, {
+      method: "POST",
+      headers: auth("editor-token", state.TENANT_A),
+      body: { description: "make the sky darker" },
+    });
+    expect(edited.status).toBe(200);
+    expect(edited.body.coverImagePath).toBe("cover.png");
+    expect(state.client.carousel.editCover).toHaveBeenCalledWith(state.JOB_ID, "make the sky darker");
+  });
+
+  it("rejects an empty cover description", async () => {
+    const created = await request("/api/v1/carousels", {
+      method: "POST",
+      headers: auth("editor-token", state.TENANT_A),
+      body: carouselInput,
+    });
+    const denied = await request(`/api/v1/carousels/${created.body.item.id}/cover/edit`, {
+      method: "POST",
+      headers: auth("editor-token", state.TENANT_A),
+      body: { description: "" },
+    });
+    expect(denied.status).toBe(400);
+    expect(state.client.carousel.editCover).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
+import { onMount } from "svelte";
 import { LiveIndicator, PageHeader } from "@hiai/ui";
-import { Badge } from "@hiai/ui/components/ui/badge/index.js";
 import { Button } from "@hiai/ui/components/ui/button/index.js";
 import {
   Card,
@@ -10,13 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@hiai/ui/components/ui/card/index.js";
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@hiai/ui/components/ui/dialog/index.js";
 import { Input } from "@hiai/ui/components/ui/input/index.js";
 import { Label } from "@hiai/ui/components/ui/label/index.js";
 import {
@@ -28,15 +21,24 @@ import {
 } from "@hiai/ui/components/ui/select/index.js";
 import { Switch } from "@hiai/ui/components/ui/switch/index.js";
 import { Textarea } from "@hiai/ui/components/ui/textarea/index.js";
+import CritiquePanel from "$lib/features/scriptforge/CritiquePanel.svelte";
+import HistoryDrawer from "$lib/features/scriptforge/HistoryDrawer.svelte";
+import PipelineStatus from "$lib/features/scriptforge/PipelineStatus.svelte";
+import ScriptEditor from "$lib/features/scriptforge/ScriptEditor.svelte";
+import TopicSelector from "$lib/features/scriptforge/TopicSelector.svelte";
 import {
   continuePipeline,
-  type RePolishParams,
+  getScriptforgeRun,
+  listScriptforgeRuns,
   rePolish,
+  rePolishSaved,
   runPipeline,
-  type ScriptforgeEvent,
   type ScriptforgeMode,
+  type ScriptforgeRunSummary,
 } from "$lib/features/scriptforge/api";
+import { createInitialState, handleSSEEvent } from "$lib/features/scriptforge/pipeline-state";
 import { FeatureApiError } from "$lib/features/shared/client";
+import type { CritiqueResult, ScriptDraft, TopicIdea } from "$lib/features/scriptforge/types";
 
 const LANGUAGES = [
   { code: "ru", label: "Russian" },
@@ -51,174 +53,66 @@ const LANGUAGES = [
   { code: "kk", label: "Kazakh" },
 ];
 
-interface TopicData {
-  id: string;
-  title: string;
-  description?: string;
-  viralPotential?: number;
-  hookVariants?: string[];
-  selectedHook?: string;
-}
+const VOICES = [
+  { id: "default", label: "Narrator (default)" },
+  { id: "maxim", label: "Maxim preset (opt-in)" },
+];
 
-interface ScriptSegment {
-  timestamp?: string;
-  visual?: string;
-  audio?: string;
-  text?: string;
-  isOpinion?: boolean;
-}
-
-interface ScriptResult {
-  title?: string;
-  hook?: string;
-  cta?: string;
-  duration?: number;
-  readingPace?: number;
-  wordCount?: number;
-  segments?: ScriptSegment[];
-}
-
-interface StageInfo {
-  stage: string;
-  status: "running" | "done" | "error";
-  message: string;
-  progress: number;
-}
-
-type StreamState = "idle" | "running" | "selection" | "done" | "error" | "aborted";
-
-// ── Form state ───────────────────────────────────────────────────────────
 let topic = $state("");
 let language = $state("ru");
 let duration = $state("45");
 let mode = $state("auto");
 let isSuper = $state(false);
 let isOpinion = $state(false);
+let voiceId = $state("default");
+let showVideoAudio = $state(false);
 
-// ── Run state ────────────────────────────────────────────────────────────
 let runId = $state("");
-let streamState = $state<StreamState>("idle");
+let pipeline = $state(createInitialState());
 let streamError = $state<string | null>(null);
-let events = $state<ScriptforgeEvent[]>([]);
 let activeController: AbortController | null = null;
+let editLoadingMap = $state<Record<number, boolean>>({});
 
-// Manual selection state.
-let selectedTopicIds = $state<string[]>([]);
-let selectedHooks = $state<Record<string, number>>({});
+let showHistory = $state(false);
+let historyRuns = $state<ScriptforgeRunSummary[]>([]);
+let historyLoading = $state(false);
+let historyError = $state<string | null>(null);
+let selectedHistoryId = $state<string | null>(null);
+let selectedTopics = $state<TopicIdea[]>([]);
+let selectedDrafts = $state<ScriptDraft[]>([]);
+let selectedFinals = $state<ScriptDraft[]>([]);
+let selectedCritiques = $state<CritiqueResult[]>([]);
 
-// Re-polish state.
-let polishOpen = $state(false);
-let polishIndex = $state(0);
-let polishFeedback = $state("");
-let polishing = $state(false);
-let polishError = $state<string | null>(null);
-let polishSuccess = $state<string | null>(null);
-let scriptOverrides = $state<Record<number, unknown>>({});
+const running = $derived(pipeline.isRunning);
+const canStart = $derived(topic.trim().length > 0);
+const topics = $derived(pipeline.results.topics ?? []);
+const finalScripts = $derived(pipeline.results.finalScripts ?? []);
+const drafts = $derived(pipeline.results.scripts ?? []);
+const awaitingSelection = $derived(
+  mode === "manual" && topics.length > 0 && finalScripts.length === 0 && !running
+);
 
 function errorText(err: unknown): string {
   if (err instanceof FeatureApiError) return err.message;
   return err instanceof Error ? err.message : String(err);
 }
 
-const running = $derived(streamState === "running");
-
-const canStart = $derived(topic.trim().length > 0);
-
-// ── Derived pipeline data ────────────────────────────────────────────────
-const topics = $derived.by(() => {
-  for (let i = events.length - 1; i >= 0; i -= 1) {
-    const ev = events[i];
-    if (ev.type !== "result" || !ev.data) continue;
-    const data = ev.data as { topics?: unknown };
-    if (Array.isArray(data.topics)) return data.topics as TopicData[];
-  }
-  return [];
-});
-
-const finalScripts = $derived.by(() => {
-  for (let i = events.length - 1; i >= 0; i -= 1) {
-    const ev = events[i];
-    if (ev.type !== "result" || !ev.message?.includes("finalized") || !ev.data) continue;
-    const data = ev.data as { finalScripts?: unknown[]; scripts?: unknown[] };
-    return data.finalScripts ?? data.scripts ?? [];
-  }
-  return [];
-});
-
-const displayScripts = $derived(
-  finalScripts.map((script, i) => (scriptOverrides[i] !== undefined ? scriptOverrides[i] : script))
-);
-
-const stages = $derived.by(() => {
-  const map = new Map<string, StageInfo>();
-  for (const ev of events) {
-    if (ev.type === "stage_start" && ev.stage) {
-      map.set(ev.stage, {
-        stage: ev.stage,
-        status: "running",
-        message: ev.message ?? "",
-        progress: 0,
-      });
-    } else if (ev.type === "stage_progress" && ev.stage) {
-      const s = map.get(ev.stage);
-      if (s) {
-        const progress = (ev.data as { progress?: number } | undefined)?.progress;
-        if (typeof progress === "number") s.progress = progress;
-        if (ev.message) s.message = ev.message;
-      }
-    } else if (ev.type === "stage_complete" && ev.stage) {
-      const s = map.get(ev.stage);
-      if (s) {
-        s.status = "done";
-        if (ev.message) s.message = ev.message;
-      }
-    } else if (
-      ev.type === "result" &&
-      typeof (ev.data as { stage?: unknown } | undefined)?.stage === "string"
-    ) {
-      const stage = (ev.data as { stage: string }).stage;
-      map.set(stage, { stage, status: "done", message: ev.message ?? "", progress: 100 });
-    } else if (ev.type === "error" && ev.stage) {
-      map.set(ev.stage, {
-        stage: ev.stage,
-        status: "error",
-        message: ev.message ?? "Stage failed",
-        progress: 100,
-      });
-    }
-  }
-  return [...map.values()];
-});
-
-const awaitingSelection = $derived(
-  mode === "manual" && topics.length > 0 && finalScripts.length === 0 && !running
-);
-
-function asScript(value: unknown): ScriptResult {
-  if (!value || typeof value !== "object") return {};
-  return value as ScriptResult;
-}
-
-// ── Pipeline actions ─────────────────────────────────────────────────────
 function resetRun() {
   streamError = null;
-  events = [];
-  selectedTopicIds = [];
-  selectedHooks = {};
-  scriptOverrides = {};
+  pipeline = createInitialState(isOpinion);
   activeController?.abort();
 }
 
-function pushEvent(ev: ScriptforgeEvent) {
-  events = [...events, ev];
-  if (ev.type === "error") streamError = ev.message ?? "Pipeline failed";
+function pushEvent(event: Parameters<typeof handleSSEEvent>[1]) {
+  pipeline = handleSSEEvent(pipeline, event);
+  if (event.type === "error") streamError = event.message ?? "Pipeline failed";
 }
 
 async function handleRun() {
   if (running || !canStart) return;
   resetRun();
   runId = crypto.randomUUID();
-  streamState = "running";
+  pipeline = { ...createInitialState(isOpinion), isRunning: true, error: null };
   const controller = new AbortController();
   activeController = controller;
   try {
@@ -231,29 +125,28 @@ async function handleRun() {
         mode: mode as ScriptforgeMode,
         isSuper,
         isOpinion,
+        voiceId,
       },
       { signal: controller.signal, onEvent: pushEvent }
     );
     if (!controller.signal.aborted) {
-      streamState =
-        mode === "manual" && topics.length > 0 && finalScripts.length === 0 ? "selection" : "done";
+      pipeline = { ...pipeline, isRunning: false };
     }
   } catch (err) {
-    if (controller.signal.aborted) {
-      streamState = "aborted";
-    } else {
+    if (!controller.signal.aborted) {
       streamError = errorText(err);
-      streamState = "error";
+      pipeline = { ...pipeline, isRunning: false, error: streamError };
     }
   } finally {
     activeController = null;
+    void loadHistory();
   }
 }
 
-async function handleContinue() {
-  if (running || selectedTopicIds.length === 0) return;
+async function handleContinue(selected: TopicIdea[]) {
+  if (running || selected.length === 0) return;
   streamError = null;
-  streamState = "running";
+  pipeline = { ...pipeline, isRunning: true, error: null };
   const controller = new AbortController();
   activeController = controller;
   try {
@@ -266,78 +159,132 @@ async function handleContinue() {
         mode: "manual",
         isSuper,
         isOpinion,
-        selectedTopicIds: selectedTopicIds,
-        selectedHookIndices: selectedTopicIds.map((id) => selectedHooks[id] ?? 0),
+        voiceId,
+        selectedTopicIds: selected.map((item) => item.id),
+        selectedHookIndices: selected.map((item) => {
+          const idx = (item.hookVariants ?? []).indexOf(item.selectedHook ?? "");
+          return idx >= 0 ? idx : 0;
+        }),
       },
       { signal: controller.signal, onEvent: pushEvent }
     );
-    if (!controller.signal.aborted) streamState = "done";
+    if (!controller.signal.aborted) pipeline = { ...pipeline, isRunning: false };
   } catch (err) {
-    if (controller.signal.aborted) {
-      streamState = "aborted";
-    } else {
+    if (!controller.signal.aborted) {
       streamError = errorText(err);
-      streamState = "error";
+      pipeline = { ...pipeline, isRunning: false, error: streamError };
     }
   } finally {
     activeController = null;
+    void loadHistory();
   }
 }
 
 function handleAbort() {
   activeController?.abort();
-  streamState = "aborted";
+  pipeline = { ...pipeline, isRunning: false };
 }
 
-function toggleTopic(id: string) {
-  if (selectedTopicIds.includes(id)) {
-    selectedTopicIds = selectedTopicIds.filter((t) => t !== id);
-  } else {
-    selectedTopicIds = [...selectedTopicIds, id];
-  }
-}
-
-// ── Re-polish ────────────────────────────────────────────────────────────
-function openPolish(index: number) {
-  polishIndex = index;
-  polishFeedback = "";
-  polishError = null;
-  polishSuccess = null;
-  polishOpen = true;
-}
-
-async function handlePolish() {
-  if (polishing) return;
-  polishing = true;
-  polishError = null;
-  polishSuccess = null;
+async function handlePolish(index: number, feedback: string) {
+  editLoadingMap = { ...editLoadingMap, [index]: true };
   try {
-    const params: RePolishParams = {
+    const res = await rePolish({
       runId,
-      scriptIndex: polishIndex,
-      userFeedback: polishFeedback.trim(),
+      scriptIndex: index,
+      userFeedback: feedback,
       language,
       duration: Number(duration) || 45,
       isSuper,
-    };
-    const res = await rePolish(params);
-    scriptOverrides = { ...scriptOverrides, [polishIndex]: res.finalScript };
-    polishSuccess = "Script re-polished. The updated version is now shown in the results.";
+    });
+    const next = [...finalScripts];
+    next[index] = res.finalScript as ScriptDraft;
+    pipeline = { ...pipeline, results: { ...pipeline.results, finalScripts: next, finalScript: next[index] } };
   } catch (err) {
-    polishError = errorText(err);
+    streamError = errorText(err);
   } finally {
-    polishing = false;
+    editLoadingMap = { ...editLoadingMap, [index]: false };
   }
 }
 
-function stageLabel(stage: string): string {
-  return stage.replaceAll("_", " ");
+async function loadHistory() {
+  historyLoading = true;
+  historyError = null;
+  try {
+    const res = await listScriptforgeRuns();
+    historyRuns = res.runs;
+  } catch (err) {
+    historyError = errorText(err);
+  } finally {
+    historyLoading = false;
+  }
 }
+
+async function openHistory(id: string) {
+  selectedHistoryId = id;
+  try {
+    const detail = await getScriptforgeRun(id);
+    selectedTopics = (detail.run.topics ?? []) as TopicIdea[];
+    selectedDrafts = (detail.run.scripts ?? []) as ScriptDraft[];
+    selectedFinals = (detail.run.finalScripts ?? []) as ScriptDraft[];
+    selectedCritiques = (detail.run.macroCritiques ?? []) as CritiqueResult[];
+  } catch (err) {
+    historyError = errorText(err);
+  }
+}
+
+function useHistoryTopic(item: TopicIdea) {
+  topic = item.title;
+  showHistory = false;
+  void handleRun();
+}
+
+async function polishSaved(script: ScriptDraft, critique: CritiqueResult | undefined, feedback: string) {
+  const res = await rePolishSaved({
+    finalScript: script,
+    critique,
+    userFeedback: feedback,
+    language,
+    duration: Number(duration) || 45,
+    isSuper,
+  });
+  selectedFinals = selectedFinals.map((item) => (item === script ? (res.finalScript as ScriptDraft) : item));
+}
+
+onMount(() => {
+  void loadHistory();
+  const params = new URLSearchParams(window.location.search);
+  const urlTopic = params.get("topic");
+  if (urlTopic) {
+    topic = urlTopic;
+    if (params.get("start") === "true") {
+      setTimeout(() => {
+        void handleRun();
+      }, 300);
+    }
+  }
+});
 </script>
 
 <svelte:head>
   <title>Scripts — HiAi Post</title>
 </svelte:head>
+
+<HistoryDrawer
+  open={showHistory}
+  runs={historyRuns}
+  loading={historyLoading}
+  error={historyError}
+  selectedRunId={selectedHistoryId}
+  selectedTopics={selectedTopics}
+  selectedDrafts={selectedDrafts}
+  selectedFinals={selectedFinals}
+  selectedCritiques={selectedCritiques}
+  onClose={() => (showHistory = false)}
+  onRefresh={() => void loadHistory()}
+  onOpen={(id) => void openHistory(id)}
+  onUseTopic={useHistoryTopic}
+  onRePolishSaved={polishSaved}
+/>
 
 <div class="mx-auto max-w-7xl space-y-6">
   <PageHeader
@@ -345,16 +292,18 @@ function stageLabel(stage: string): string {
     description="Research a topic, generate viral script drafts with hooks and CTA, then refine them with AI feedback."
   >
     {#snippet actions()}
+      <Button type="button" variant="outline" onclick={() => (showHistory = true)}>History</Button>
       <LiveIndicator connected={running} />
     {/snippet}
   </PageHeader>
 
   <div class="grid gap-6 lg:grid-cols-5">
-    <!-- Pipeline form -->
     <Card class="self-start lg:col-span-2">
       <CardHeader>
         <CardTitle>New script</CardTitle>
-        <CardDescription>Topics are researched and drafted in the background; progress streams live below.</CardDescription>
+        <CardDescription>
+          Pipeline runs on hiai-kit. Provider keys stay in kit env — this page never sends OpenRouter or Firecrawl keys.
+        </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">
         <div class="space-y-2">
@@ -400,6 +349,20 @@ function stageLabel(stage: string): string {
           </SelectRoot>
         </div>
 
+        <div class="space-y-2">
+          <Label for="script-voice">Voice</Label>
+          <SelectRoot type="single" bind:value={voiceId}>
+            <SelectTrigger id="script-voice" class="w-full">
+              <SelectValue placeholder="Voice" />
+            </SelectTrigger>
+            <SelectContent>
+              {#each VOICES as voice}
+                <SelectItem value={voice.id}>{voice.label}</SelectItem>
+              {/each}
+            </SelectContent>
+          </SelectRoot>
+        </div>
+
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
             <div>
@@ -411,9 +374,16 @@ function stageLabel(stage: string): string {
           <div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
             <div>
               <p class="text-sm font-medium">Opinion segment</p>
-              <p class="text-xs text-muted-foreground">Inject a personal-opinion segment into drafts.</p>
+              <p class="text-xs text-muted-foreground">Inject a first-person opinion beat in the selected voice.</p>
             </div>
             <Switch bind:checked={isOpinion} ariaLabel="Opinion segment" />
+          </div>
+          <div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+            <div>
+              <p class="text-sm font-medium">Show visual / audio notes</p>
+              <p class="text-xs text-muted-foreground">Reveal director notes on each segment.</p>
+            </div>
+            <Switch bind:checked={showVideoAudio} ariaLabel="Show visual and audio notes" />
           </div>
         </div>
 
@@ -428,186 +398,67 @@ function stageLabel(stage: string): string {
         {#if running}
           <Button type="button" variant="destructive" onclick={handleAbort}>Abort</Button>
         {/if}
-        {#if streamState === "error" || streamState === "aborted"}
+        {#if pipeline.error && !running}
           <Button type="button" variant="outline" onclick={() => void handleRun()}>Retry</Button>
         {/if}
       </CardFooter>
     </Card>
 
-    <!-- Live stage list -->
-    <Card class="lg:col-span-3">
-      <CardHeader>
-        <CardTitle>Pipeline stages</CardTitle>
-        <CardDescription>
-          {#if running}
-            Streaming events live from the hiai-kit backend…
-          {:else if stages.length === 0}
-            No pipeline has been run yet.
-          {:else}
-            {stages.length} stage(s) recorded.
-          {/if}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {#if stages.length === 0}
-          <p class="py-8 text-center text-sm text-muted-foreground">
-            Run the pipeline above to see live stages, generated topics and the final script.
-          </p>
-        {:else}
-          <ol class="space-y-2">
-            {#each stages as stage}
-              <li class="flex items-center gap-3 rounded-md border border-border p-3">
-                <span
-                  class="flex h-5 w-5 shrink-0 items-center justify-center"
-                  aria-hidden="true"
-                >
-                  {#if stage.status === "running"}
-                    <span class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
-                  {:else if stage.status === "done"}
-                    <span class="text-sm font-bold text-green-600">✓</span>
-                  {:else}
-                    <span class="text-sm font-bold text-destructive">✕</span>
-                  {/if}
-                </span>
-                <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium capitalize">{stageLabel(stage.stage)}</p>
-                  {#if stage.message}
-                    <p class="truncate text-xs text-muted-foreground">{stage.message}</p>
-                  {/if}
-                </div>
-                {#if stage.status === "running" && stage.progress > 0}
-                  <Badge variant="secondary">{Math.round(stage.progress)}%</Badge>
-                {:else}
-                  <Badge variant={stage.status === "error" ? "destructive" : "secondary"}>
-                    {stage.status}
-                  </Badge>
-                {/if}
-              </li>
-            {/each}
-          </ol>
-        {/if}
-      </CardContent>
-    </Card>
+    <div class="lg:col-span-3">
+      <PipelineStatus
+        stages={pipeline.stages}
+        currentStage={pipeline.currentStage}
+        progress={pipeline.progress}
+        messages={pipeline.messages}
+        running={running}
+      />
+    </div>
   </div>
 
-  <!-- Manual topic selection -->
   {#if awaitingSelection}
+    <TopicSelector topics={topics} disabled={running} onSelect={(selected) => void handleContinue(selected)} />
+  {/if}
+
+  {#if drafts.length > 0 && finalScripts.length === 0}
     <Card>
       <CardHeader>
-        <CardTitle>Choose topics</CardTitle>
-        <CardDescription>
-          Pick one or more generated topics and a hook variant each, then continue the pipeline.
-        </CardDescription>
+        <CardTitle>Drafts</CardTitle>
+        <CardDescription>{drafts.length} draft(s) written. Critique and polish follow.</CardDescription>
       </CardHeader>
-      <CardContent class="space-y-3">
-        {#each topics as t (t.id)}
-          <div class="rounded-md border border-border p-3">
-            <label class="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={selectedTopicIds.includes(t.id)}
-                onclick={() => toggleTopic(t.id)}
-                class="mt-1 h-4 w-4 accent-primary"
-              />
-              <div class="min-w-0 flex-1">
-                <p class="text-sm font-medium">{t.title}</p>
-                {#if t.description}
-                  <p class="mt-0.5 text-xs text-muted-foreground">{t.description}</p>
-                {/if}
-                {#if typeof t.viralPotential === "number"}
-                  <p class="mt-0.5 text-xs text-muted-foreground">Viral potential: {t.viralPotential}/10</p>
-                {/if}
-              </div>
-            </label>
-            {#if selectedTopicIds.includes(t.id) && (t.hookVariants?.length ?? 0) > 0}
-              <div class="mt-3 space-y-1.5">
-                {#each t.hookVariants ?? [] as hook, hookIndex (hookIndex)}
-                  <label
-                    class="flex cursor-pointer items-start gap-2 rounded-md border border-border p-2"
-                    class:border-primary={selectedHooks[t.id] === hookIndex}
-                  >
-                    <input
-                      type="radio"
-                      name="hook-{t.id}"
-                      checked={selectedHooks[t.id] === hookIndex}
-                      onclick={() => (selectedHooks = { ...selectedHooks, [t.id]: hookIndex })}
-                      class="mt-0.5 h-3.5 w-3.5 accent-primary"
-                    />
-                    <span class="text-xs text-muted-foreground">{hook}</span>
-                  </label>
-                {/each}
-              </div>
-            {/if}
-          </div>
+      <CardContent class="space-y-6">
+        {#each drafts as script, index (script.id ?? index)}
+          <ScriptEditor {script} {showVideoAudio} />
         {/each}
       </CardContent>
-      <CardFooter>
-        <Button
-          type="button"
-          onclick={() => void handleContinue()}
-          disabled={running || selectedTopicIds.length === 0}
-        >
-          {running ? "Continuing…" : "Continue with selection"}
-        </Button>
-      </CardFooter>
     </Card>
   {/if}
 
-  <!-- Final result -->
-  {#if displayScripts.length > 0}
+  {#if pipeline.results.macroCritique}
+    <CritiquePanel critique={pipeline.results.macroCritique} title="Macro critique" />
+  {/if}
+  {#if pipeline.results.microCritique}
+    <CritiquePanel critique={pipeline.results.microCritique} title="Micro critique" />
+  {/if}
+
+  {#if finalScripts.length > 0}
     <Card>
       <CardHeader>
         <CardTitle>Final result</CardTitle>
-        <CardDescription>{displayScripts.length} script(s) ready. Use “Re-polish” to iterate with AI feedback.</CardDescription>
+        <CardDescription>{finalScripts.length} script(s) ready. Use Re-polish to iterate with AI feedback.</CardDescription>
       </CardHeader>
-      <CardContent class="space-y-4">
-        {#each displayScripts as raw, index (index)}
-          {@const script = asScript(raw)}
-          <div class="rounded-md border border-border p-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-sm font-semibold">{index + 1}. {script.title ?? "Untitled script"}</p>
-                <p class="mt-1 text-sm italic text-muted-foreground">“{script.hook ?? ""}”</p>
-              </div>
-              <Button variant="outline" size="sm" onclick={() => openPolish(index)}>Re-polish</Button>
-            </div>
-
-            {#if typeof script.duration === "number" || typeof script.wordCount === "number" || typeof script.readingPace === "number"}
-              <p class="mt-2 text-xs text-muted-foreground">
-                {#if typeof script.duration === "number"}~{script.duration}s{/if}
-                {#if typeof script.wordCount === "number"} · {script.wordCount} words{/if}
-                {#if typeof script.readingPace === "number"} · {script.readingPace} wpm{/if}
-              </p>
-            {/if}
-
-            {#if (script.segments?.length ?? 0) > 0}
-              <ol class="mt-3 space-y-2 border-t border-border pt-3">
-                {#each script.segments ?? [] as seg, segIndex (segIndex)}
-                  <li class="text-sm">
-                    <div class="flex items-center gap-2">
-                      {#if seg.timestamp}
-                        <span class="shrink-0 font-mono text-xs text-muted-foreground">[{seg.timestamp}]</span>
-                      {/if}
-                      {#if seg.isOpinion}
-                        <Badge variant="secondary">opinion</Badge>
-                      {/if}
-                    </div>
-                    {#if seg.text}
-                      <p class="mt-0.5">{seg.text}</p>
-                    {/if}
-                    {#if seg.visual}
-                      <p class="mt-0.5 text-xs text-muted-foreground"><span class="font-medium">Visual:</span> {seg.visual}</p>
-                    {/if}
-                    {#if seg.audio}
-                      <p class="mt-0.5 text-xs text-muted-foreground"><span class="font-medium">Audio:</span> {seg.audio}</p>
-                    {/if}
-                  </li>
-                {/each}
-              </ol>
-            {/if}
-
-            {#if script.cta}
-              <p class="mt-3 border-t border-border pt-3 text-sm font-medium">CTA: {script.cta}</p>
+      <CardContent class="space-y-8">
+        {#each finalScripts as script, index (script.id ?? index)}
+          <div class="space-y-4">
+            <p class="text-sm font-semibold">{index + 1}. {script.title ?? "Untitled script"}</p>
+            <ScriptEditor
+              {script}
+              isFinal
+              {showVideoAudio}
+              editLoading={Boolean(editLoadingMap[index])}
+              onEditRequest={(feedback) => void handlePolish(index, feedback)}
+            />
+            {#if pipeline.results.macroCritiques?.[index]}
+              <CritiquePanel critique={pipeline.results.macroCritiques[index]!} title="Macro critique" />
             {/if}
           </div>
         {/each}
@@ -615,34 +466,3 @@ function stageLabel(stage: string): string {
     </Card>
   {/if}
 </div>
-
-<!-- Re-polish dialog -->
-<Dialog bind:open={polishOpen}>
-  <DialogHeader>
-    <DialogTitle>Re-polish script {polishIndex + 1}</DialogTitle>
-    <DialogDescription>
-      Describe what to change — tone, structure, length, hooks — and the AI will produce an updated version.
-    </DialogDescription>
-  </DialogHeader>
-  <div class="space-y-2">
-    <Label for="polish-feedback">Feedback</Label>
-    <Textarea
-      id="polish-feedback"
-      bind:value={polishFeedback}
-      placeholder="Make the hook punchier and shorten the middle segments…"
-      rows={4}
-    />
-  </div>
-  {#if polishError}
-    <p class="text-sm text-destructive" role="alert">Re-polish failed: {polishError}</p>
-  {/if}
-  {#if polishSuccess}
-    <p class="text-sm text-green-600" role="status">{polishSuccess}</p>
-  {/if}
-  <DialogFooter>
-    <Button variant="outline" onclick={() => (polishOpen = false)}>Close</Button>
-    <Button type="button" onclick={() => void handlePolish()} disabled={polishing || polishFeedback.trim().length === 0}>
-      {polishing ? "Polishing…" : "Re-polish"}
-    </Button>
-  </DialogFooter>
-</Dialog>

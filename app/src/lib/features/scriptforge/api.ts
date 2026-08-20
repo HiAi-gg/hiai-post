@@ -18,6 +18,8 @@ export interface RunPipelineParams {
   mode?: ScriptforgeMode;
   isSuper?: boolean;
   isOpinion?: boolean;
+  voiceId?: string;
+  voiceName?: string;
 }
 
 export interface ContinuePipelineParams extends RunPipelineParams {
@@ -32,6 +34,7 @@ export interface ScriptforgeEvent<TData = unknown> {
   message?: string;
   data?: TData;
   stage?: string;
+  progress?: number;
 }
 
 export interface RePolishParams {
@@ -88,6 +91,8 @@ export function runPipelineUrl(params: RunPipelineParams): string {
       mode: params.mode ?? "auto",
       isSuper: params.isSuper,
       isOpinion: params.isOpinion,
+      voiceId: params.voiceId,
+      voiceName: params.voiceName,
     })}`
   );
 }
@@ -102,6 +107,8 @@ export function continuePipelineUrl(params: ContinuePipelineParams): string {
       mode: "manual",
       isSuper: params.isSuper,
       isOpinion: params.isOpinion,
+      voiceId: params.voiceId,
+      voiceName: params.voiceName,
       selectedTopicIds: params.selectedTopicIds,
       selectedHookIndices: params.selectedHookIndices,
     })}`
@@ -189,4 +196,37 @@ export async function rePolishSaved(params: RePolishSavedParams): Promise<RePoli
     method: "POST",
     body: JSON.stringify(params),
   });
+}
+
+export interface ScriptforgeRunSummary {
+  runId: string;
+  query: string;
+  createdAt: string;
+  updatedAt: string;
+  topicCount: number;
+  draftCount: number;
+  finalCount: number;
+}
+
+export interface ScriptforgeRunDetail {
+  runId: string;
+  run: {
+    query?: string;
+    topics?: unknown[];
+    research?: unknown;
+    scripts?: unknown[];
+    finalScripts?: unknown[];
+    macroCritiques?: unknown[];
+    microCritiques?: unknown[];
+    createdAt?: string;
+    updatedAt?: string;
+  };
+}
+
+export function listScriptforgeRuns(): Promise<{ runs: ScriptforgeRunSummary[] }> {
+  return featureFetch<{ runs: ScriptforgeRunSummary[] }>("/api/v1/scriptforge/runs");
+}
+
+export function getScriptforgeRun(runId: string): Promise<ScriptforgeRunDetail> {
+  return featureFetch<ScriptforgeRunDetail>(`/api/v1/scriptforge/runs/${encodeURIComponent(runId)}`);
 }

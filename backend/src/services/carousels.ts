@@ -32,8 +32,10 @@ import {
   CAROUSEL_PRESETS,
   type CarouselDesignPreset,
   type CarouselJob,
+  type AddBlankSlideResult,
   type CreateCarouselInput,
   type CreateCarouselResult,
+  type EditCoverResult,
   createHiaiKitClient,
   MAX_CAROUSEL_SLIDES,
   type RegenerateSlideResult,
@@ -62,6 +64,12 @@ export interface CarouselAdapter {
   ): Promise<RegenerateSlideResult>;
   getJob(jobId: string): Promise<CarouselJob>;
   getSlideJson(jobId: string, slideNumber: number): Promise<unknown>;
+  saveSlideJson?(jobId: string, slideNumber: number, doc: unknown): Promise<{ ok: true; json: unknown }>;
+  uploadSlidePng?(jobId: string, slideNumber: number, bytes: Uint8Array): Promise<{ ok: true; fileName: string }>;
+  getCover?(jobId: string): Promise<{ contentType: string; data: ArrayBuffer }>;
+  getSlidePng?(jobId: string, slideNumber: number): Promise<{ contentType: string; data: ArrayBuffer }>;
+  addBlankSlide?(jobId: string): Promise<AddBlankSlideResult>;
+  editCover?(jobId: string, description: string): Promise<EditCoverResult>;
 }
 
 export interface CarouselServiceOptions {
@@ -127,6 +135,10 @@ const regenerateSlideBodySchema = z.object({
   description: z.string().max(2000).optional(),
 });
 
+const editCoverBodySchema = z.object({
+  description: z.string().trim().min(1).max(2000),
+});
+
 const carouselBodyJsonSchema = z.object({
   kind: z.literal("carousel"),
   jobId: z.string().min(1),
@@ -162,6 +174,13 @@ function defaultAdapter(): CarouselAdapter {
       client.carousel.regenerateSlide(jobId, slideNumber, description),
     getJob: (jobId) => client.carousel.getJob(jobId),
     getSlideJson: (jobId, slideNumber) => client.carousel.getSlideJson(jobId, slideNumber),
+    saveSlideJson: (jobId, slideNumber, doc) => client.carousel.saveSlideJson(jobId, slideNumber, doc),
+    uploadSlidePng: (jobId, slideNumber, bytes) =>
+      client.carousel.uploadSlidePng(jobId, slideNumber, bytes),
+    getCover: (jobId) => client.carousel.getCover(jobId),
+    getSlidePng: (jobId, slideNumber) => client.carousel.getSlidePng(jobId, slideNumber),
+    addBlankSlide: (jobId) => client.carousel.addBlankSlide(jobId),
+    editCover: (jobId, description) => client.carousel.editCover(jobId, description),
   };
 }
 
@@ -613,6 +632,11 @@ async function saveCarouselSlideDocumentInner(
   const parsed = slideDocumentSchema.safeParse(doc ?? {});
   if (!parsed.success) throw new ValidationError("Validation failed", parsed.error.flatten());
 
+  const adapter = opts.adapter ?? defaultAdapter();
+  if (adapter.saveSlideJson) {
+    await adapter.saveSlideJson(body.jobId, slideNumber, parsed.data);
+  }
+
   const slides = body.slides.map((s) => ({ ...s }));
   slides[slideNumber - 1] = {
     ...slides[slideNumber - 1],
@@ -629,4 +653,172 @@ async function saveCarouselSlideDocumentInner(
   );
   const item = await getContentItem(ctx, id, db);
   return { item, revision, slide: slides[slideNumber - 1] };
+}
+
+/** Proxy the Sharp-written cover PNG from the existing kit job session. */
+export async function getCarouselCover(
+  ctx: ServiceContext,
+  id: string,
+  opts: CarouselServiceOptions = {}
+): Promise<{ contentType: string; data: ArrayBuffer }> {
+  const db = withDb(opts.db);
+  const adapter = opts.adapter ?? defaultAdapter();
+  const { body } = await loadCarousel(ctx, id, db);
+  if (!adapter.getCover) throw new NotFoundError("Cover not available");
+  return adapter.getCover(body.jobId);
+}
+
+/**
+ * Persist a client Konva PNG export through kit's existing session dir.
+ * Slide PNGs do not exist until this upload succeeds.
+ */
+export function uploadCarouselSlidePng(
+  ctx: ServiceContext,
+  id: string,
+  index: unknown,
+  bytes: Uint8Array,
+  opts: CarouselServiceOptions = {}
+): Promise<{ fileName: string }> {
+  return observeCall(
+    {
+      kind: "carousel",
+      operation: "carousel.slidePng.upload",
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      metadata: { contentItemId: id, slideNumber: Number(index) || 0 },
+      enrich: {
+        success: (result) => ({ fileName: (result as { fileName: string }).fileName }),
+        failure: (err) => ({ error: normalizeObservedError(err) }),
+      },
+    },
+    () => uploadCarouselSlidePngInner(ctx, id, index, bytes, opts)
+  );
+}
+
+async function uploadCarouselSlidePngInner(
+  ctx: ServiceContext,
+  id: string,
+  index: unknown,
+  bytes: Uint8Array,
+  opts: CarouselServiceOptions = {}
+): Promise<{ fileName: string }> {
+  const db = withDb(opts.db);
+  const adapter = opts.adapter ?? defaultAdapter();
+  const { body } = await loadCarousel(ctx, id, db);
+  const slideNumber = assertSlideIndex(index, body.slides.length);
+  if (!adapter.uploadSlidePng) throw new ValidationError("Slide PNG upload is not available");
+  return adapter.uploadSlidePng(body.jobId, slideNumber, bytes);
+}
+
+export async function getCarouselSlidePng(
+  ctx: ServiceContext,
+  id: string,
+  index: unknown,
+  opts: CarouselServiceOptions = {}
+): Promise<{ contentType: string; data: ArrayBuffer }> {
+  const db = withDb(opts.db);
+  const adapter = opts.adapter ?? defaultAdapter();
+  const { body } = await loadCarousel(ctx, id, db);
+  const slideNumber = assertSlideIndex(index, body.slides.length);
+  if (!adapter.getSlidePng) throw new NotFoundError("Slide PNG not found");
+  return adapter.getSlidePng(body.jobId, slideNumber);
+}
+
+/**
+ * Append a blank slide: kit writes slide_N.json, then we persist the extra
+ * slide on the content item and append a revision.
+ */
+export function addCarouselBlankSlide(
+  ctx: ServiceContext,
+  id: string,
+  opts: CarouselServiceOptions = {}
+): Promise<{ item: any; revision: any; slideNumber: number; slide: CarouselSlideData }> {
+  return observeCall(
+    {
+      kind: "carousel",
+      operation: "carousel.slide.add",
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      metadata: { contentItemId: id },
+      enrich: {
+        success: (result) => ({ slideNumber: (result as { slideNumber: number }).slideNumber }),
+        failure: (err) => ({ error: normalizeObservedError(err) }),
+      },
+    },
+    () => addCarouselBlankSlideInner(ctx, id, opts)
+  );
+}
+
+async function addCarouselBlankSlideInner(
+  ctx: ServiceContext,
+  id: string,
+  opts: CarouselServiceOptions = {}
+): Promise<{ item: any; revision: any; slideNumber: number; slide: CarouselSlideData }> {
+  const db = withDb(opts.db);
+  const adapter = opts.adapter ?? defaultAdapter();
+  const { body } = await loadCarousel(ctx, id, db);
+
+  if (body.slides.length >= MAX_CAROUSEL_SLIDES) {
+    throw new ValidationError(`Maximum ${MAX_CAROUSEL_SLIDES} slides reached`);
+  }
+  if (!adapter.addBlankSlide) throw new ValidationError("Add blank slide is not available");
+
+  const result = await adapter.addBlankSlide(body.jobId);
+  const slide: CarouselSlideData = {
+    title: "New Slide",
+    content: "Add your content here",
+    doc: result.json,
+    savedAt: new Date().toISOString(),
+  };
+  const nextBodyJson: CarouselBodyJson = { ...body, slides: [...body.slides, slide] };
+
+  const revision = await createRevision(
+    ctx,
+    id,
+    { bodyJson: nextBodyJson, changeNote: `Blank slide ${result.slideNumber} added` },
+    db
+  );
+  const item = await getContentItem(ctx, id, db);
+  return { item, revision, slideNumber: result.slideNumber, slide };
+}
+
+/** AI-edit the existing kit cover.png. Does not invent a cover if none exists. */
+export function editCarouselCover(
+  ctx: ServiceContext,
+  id: string,
+  description: unknown,
+  opts: CarouselServiceOptions = {}
+): Promise<{ item: any; coverImagePath: string; updatedAt: string }> {
+  return observeCall(
+    {
+      kind: "carousel",
+      operation: "carousel.cover.edit",
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      metadata: { contentItemId: id },
+      enrich: {
+        success: (result) => ({ coverImagePath: (result as { coverImagePath: string }).coverImagePath }),
+        failure: (err) => ({ error: normalizeObservedError(err) }),
+      },
+    },
+    () => editCarouselCoverInner(ctx, id, description, opts)
+  );
+}
+
+async function editCarouselCoverInner(
+  ctx: ServiceContext,
+  id: string,
+  description: unknown,
+  opts: CarouselServiceOptions = {}
+): Promise<{ item: any; coverImagePath: string; updatedAt: string }> {
+  const db = withDb(opts.db);
+  const adapter = opts.adapter ?? defaultAdapter();
+  const { item, body } = await loadCarousel(ctx, id, db);
+
+  const parsed = editCoverBodySchema.safeParse({ description });
+  if (!parsed.success) throw new ValidationError("Validation failed", parsed.error.flatten());
+  if (!adapter.editCover) throw new ValidationError("Cover edit is not available");
+
+  const result = await adapter.editCover(body.jobId, parsed.data.description);
+  return { item, coverImagePath: result.coverImagePath, updatedAt: result.updatedAt };
 }

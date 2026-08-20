@@ -35,6 +35,7 @@ import { contentPlansRoutes } from "./routes/content-plans.js";
 import { eventRoutes } from "./routes/events.js";
 import { generateRoutes } from "./routes/generate.js";
 import { healthRoutes } from "./routes/health.js";
+import { marketingRoutes } from "./routes/marketing.js";
 import { mcpRoutes } from "./routes/mcp.js";
 import { oauthCallbackRoutes, oauthRoutes } from "./routes/oauth.js";
 import { postsRoutes } from "./routes/posts.js";
@@ -100,6 +101,7 @@ export function createProtectedApp() {
       .use(projectsRoutes)
       .use(contentRoutes)
       .use(carouselsRoutes)
+      .use(marketingRoutes)
       .use(writerRoutes)
       .use(apiKeysRoutes)
       // MCP JSON-RPC endpoint — requires a MACHINE principal (hpk_ key / admin

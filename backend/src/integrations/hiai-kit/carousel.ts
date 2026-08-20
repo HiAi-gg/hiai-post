@@ -1,7 +1,7 @@
 /**
  * hiai-kit carousel job client — `/api/v1/carousel` (job-based pipeline).
  *
- * Endpoints mirror the verified hiai-kit routes (7 endpoints, MAX_SLIDES = 10,
+ * Endpoints mirror the verified hiai-kit routes (MAX_SLIDES = 10,
  * 7 presets). Write routes (`createJob`, `regenerateSlide`) are gated by
  * hiai-kit's `requireAuth` + `agents:write` RBAC — without a configured
  * server-side session they fail with 401 mapped to `HIAI_KIT_ERROR` (see
@@ -28,6 +28,14 @@ import {
   MAX_CAROUSEL_SLIDES,
   type RegenerateSlideResult,
   regenerateSlideResultSchema,
+  type AddBlankSlideResult,
+  addBlankSlideResultSchema,
+  type EditCoverResult,
+  editCoverResultSchema,
+  type SaveSlideJsonResult,
+  type SaveSlidePngResult,
+  saveSlideJsonResultSchema,
+  saveSlidePngResultSchema,
 } from "./schemas.js";
 
 const CAROUSEL_PREFIX = "/api/v1/carousel";
@@ -56,6 +64,20 @@ export interface CarouselClient {
   ): Promise<RegenerateSlideResult>;
   /** `GET /api/v1/carousel/:id/cover.png` — binary cover image. */
   getCover(jobId: string): Promise<CarouselCover>;
+  /** `PUT /api/v1/carousel/:id/slide/:n/json` — persist edited slide JSON. */
+  saveSlideJson(jobId: string, slideNumber: number, doc: unknown): Promise<SaveSlideJsonResult>;
+  /** `PUT /api/v1/carousel/:id/slide/:n/png` — persist a client Konva export. */
+  uploadSlidePng(
+    jobId: string,
+    slideNumber: number,
+    bytes: Uint8Array
+  ): Promise<SaveSlidePngResult>;
+  /** `GET /api/v1/carousel/:id/slide/:n/png` — only exists after upload. */
+  getSlidePng(jobId: string, slideNumber: number): Promise<CarouselCover>;
+  /** `POST /api/v1/carousel/:id/slide/add` — append a blank slide JSON. */
+  addBlankSlide(jobId: string): Promise<AddBlankSlideResult>;
+  /** `POST /api/v1/carousel/:id/cover/edit` — AI-edit the existing cover.png. */
+  editCover(jobId: string, description: string): Promise<EditCoverResult>;
 }
 
 function assertJobId(jobId: string, path: string): void {
@@ -147,6 +169,74 @@ export function createCarouselClient(config: HiaiKitClientConfig): CarouselClien
       assertJobId(jobId, path);
       const result = await hiaiKitBinary(config, { path });
       return { contentType: result.contentType, data: result.data };
+    },
+
+    async saveSlideJson(
+      jobId: string,
+      slideNumber: number,
+      doc: unknown
+    ): Promise<SaveSlideJsonResult> {
+      const path = `${CAROUSEL_PREFIX}/${jobId}/slide/${slideNumber}/json`;
+      assertJobId(jobId, path);
+      assertSlideNumber(slideNumber, path);
+      const { data, correlationId } = await hiaiKitJson(config, {
+        method: "PUT",
+        path,
+        body: doc,
+      });
+      return parseResponse(saveSlideJsonResultSchema, data, correlationId, path);
+    },
+
+    async uploadSlidePng(
+      jobId: string,
+      slideNumber: number,
+      bytes: Uint8Array
+    ): Promise<SaveSlidePngResult> {
+      const path = `${CAROUSEL_PREFIX}/${jobId}/slide/${slideNumber}/png`;
+      assertJobId(jobId, path);
+      assertSlideNumber(slideNumber, path);
+      const { data, correlationId } = await hiaiKitJson(config, {
+        method: "PUT",
+        path,
+        binaryBody: bytes,
+        contentType: "image/png",
+      });
+      return parseResponse(saveSlidePngResultSchema, data, correlationId, path);
+    },
+
+    async getSlidePng(jobId: string, slideNumber: number): Promise<CarouselCover> {
+      const path = `${CAROUSEL_PREFIX}/${jobId}/slide/${slideNumber}/png`;
+      assertJobId(jobId, path);
+      assertSlideNumber(slideNumber, path);
+      const result = await hiaiKitBinary(config, { path });
+      return { contentType: result.contentType, data: result.data };
+    },
+
+    async addBlankSlide(jobId: string): Promise<AddBlankSlideResult> {
+      const path = `${CAROUSEL_PREFIX}/${jobId}/slide/add`;
+      assertJobId(jobId, path);
+      const { data, correlationId } = await hiaiKitJson(config, {
+        method: "POST",
+        path,
+        body: {},
+      });
+      return parseResponse(addBlankSlideResultSchema, data, correlationId, path);
+    },
+
+    async editCover(jobId: string, description: string): Promise<EditCoverResult> {
+      const path = `${CAROUSEL_PREFIX}/${jobId}/cover/edit`;
+      assertJobId(jobId, path);
+      if (typeof description !== "string" || description.trim().length === 0) {
+        throw new HiaiKitError("VALIDATION_ERROR", "Cover edit description is required", 400, {
+          path,
+        });
+      }
+      const { data, correlationId } = await hiaiKitJson(config, {
+        method: "POST",
+        path,
+        body: { description: description.trim() },
+      });
+      return parseResponse(editCoverResultSchema, data, correlationId, path);
     },
   };
 }

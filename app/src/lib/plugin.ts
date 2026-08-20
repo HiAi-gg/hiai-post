@@ -84,6 +84,7 @@ export const hiaiPostPlugin = {
         { label: "Analytics", href: "/analytics", icon: "TrendingUp" },
         { label: "Carousels", href: "/carousels", icon: "GalleryHorizontal" },
         { label: "Scripts", href: "/scripts", icon: "ScrollText" },
+        { label: "Marketing", href: "/marketing", icon: "Sparkles" },
       ],
     },
   ],

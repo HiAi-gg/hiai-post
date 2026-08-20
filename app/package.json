@@ -41,12 +41,17 @@
     "bits-ui": "^2.18.1",
     "bun-types": "^1.3.14",
     "cmdk-sv": "^0.0.19",
+    "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
+    "konva": "^10.3.1",
     "layerchart": "^1.0.0",
     "lucide-svelte": "^0.577.0",
     "marked": "17.0.6",
+    "nanoid": "^6.0.1",
     "shadcn-svelte": "^1.2.7",
     "svelte-tiptap": "^3.0.1",
     "tailwind-merge": "^3.6.0",
-    "tailwind-variants": "^3.2.2"
+    "tailwind-variants": "^3.2.2",
+    "zod": "^4.4.3"
   }
 }

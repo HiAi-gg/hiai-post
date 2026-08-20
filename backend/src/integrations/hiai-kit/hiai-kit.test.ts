@@ -472,6 +472,52 @@ describe("carousel client", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it("runs the marketing pipeline via /api/v1/marketing/pipeline", async () => {
+    const output = {
+      topic: "AI tooling",
+      researchUsedBrowser: false,
+      researchSummary: "s",
+      draft: "d",
+      voiceScore: 0.8,
+      finalText: "final",
+      truncated: false,
+      charsUsed: 5,
+      complianceOk: true,
+      violations: [],
+      published: false,
+      messageId: null,
+      blockedReason: null,
+      duplicate: false,
+      idempotencyKey: "k",
+      startedAt: "2026-08-20T00:00:00.000Z",
+      completedAt: "2026-08-20T00:00:01.000Z",
+    };
+    const mockFetch = mockFetchOnce(async () => jsonResponse(200, output));
+    const client = createHiaiKitClient({ url: "http://kit.test", timeoutMs: 5000 });
+    const result = await client.marketing.runPipeline({
+      chatId: 1,
+      skipPublish: true,
+      topic: "AI tooling trends",
+    });
+    expect(result.topic).toBe("AI tooling");
+    expect(result.published).toBe(false);
+    const [calledUrl, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toBe("http://kit.test/api/v1/marketing/pipeline");
+    expect(init.method).toBe("POST");
+  });
+
+  it("lists marketing trends from /api/v1/marketing/trends", async () => {
+    mockFetchOnce(async () =>
+      jsonResponse(200, {
+        trends: [{ id: 1, topic: "Bun", source: "hackernews", score: "10", fetchedAt: "2026-08-20T00:00:00.000Z" }],
+      })
+    );
+    const client = createHiaiKitClient({ url: "http://kit.test", timeoutMs: 5000 });
+    const trends = await client.marketing.listTrends(10);
+    expect(trends).toHaveLength(1);
+    expect(trends[0].topic).toBe("Bun");
+  });
+
   it("normalizes error envelopes via toHiaiKitErrorEnvelope", async () => {
     mockFetchOnce(async () =>
       jsonResponse(404, { error: true, code: "capability_not_found", message: "gone" })

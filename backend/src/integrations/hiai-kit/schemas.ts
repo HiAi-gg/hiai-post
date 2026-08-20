@@ -309,6 +309,30 @@ export const regenerateSlideResultSchema = z.object({
 });
 export type RegenerateSlideResult = z.infer<typeof regenerateSlideResultSchema>;
 
+export const saveSlideJsonResultSchema = z.object({
+  ok: z.literal(true),
+  json: jsonValueSchema,
+});
+export type SaveSlideJsonResult = z.infer<typeof saveSlideJsonResultSchema>;
+
+export const saveSlidePngResultSchema = z.object({
+  ok: z.literal(true),
+  fileName: z.string(),
+});
+export type SaveSlidePngResult = z.infer<typeof saveSlidePngResultSchema>;
+
+export const addBlankSlideResultSchema = z.object({
+  slideNumber: z.number().int().min(1).max(10),
+  json: jsonValueSchema,
+});
+export type AddBlankSlideResult = z.infer<typeof addBlankSlideResultSchema>;
+
+export const editCoverResultSchema = z.object({
+  coverImagePath: z.string(),
+  updatedAt: z.string(),
+});
+export type EditCoverResult = z.infer<typeof editCoverResultSchema>;
+
 /** hiai-kit requires job ids to be UUIDs on the `/:id` routes. */
 export const CAROUSEL_JOB_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -478,3 +502,92 @@ export const slideDocumentSchema = z
   })
   .passthrough();
 export type SlideDocumentShape = z.infer<typeof slideDocumentSchema>;
+
+// ---------------------------------------------------------------------------
+// Marketing daily pipeline (`/api/v1/marketing`)
+// ---------------------------------------------------------------------------
+
+export const marketingVoiceProfileSchema = z
+  .object({
+    tone: z.string().optional(),
+    audience: z.string().optional(),
+    bannedTerms: z.array(z.string()).optional(),
+    preferredPhrases: z.array(z.string()).optional(),
+    lengthCapChars: z.number().int().positive().optional(),
+  })
+  .passthrough();
+
+export const marketingPipelineInputSchema = z.object({
+  topic: z.string().min(3).optional(),
+  sourceUrls: z.array(z.string().url()).optional(),
+  chatId: z.union([z.string(), z.number()]),
+  skipPublish: z.boolean().optional(),
+  idempotencyKey: z.string().optional(),
+  voiceProfile: marketingVoiceProfileSchema.optional(),
+});
+export type MarketingPipelineInput = z.infer<typeof marketingPipelineInputSchema>;
+
+export const marketingViolationSchema = z.object({
+  type: z.string(),
+  snippet: z.string(),
+  severity: z.enum(["block", "warn"]),
+});
+
+export const marketingPipelineOutputSchema = z.object({
+  topic: z.string(),
+  researchUsedBrowser: z.boolean(),
+  researchSummary: z.string(),
+  draft: z.string(),
+  voiceScore: z.number(),
+  finalText: z.string(),
+  truncated: z.boolean(),
+  charsUsed: z.number().int().nonnegative(),
+  complianceOk: z.boolean(),
+  violations: z.array(marketingViolationSchema),
+  published: z.boolean(),
+  messageId: z.union([z.string(), z.number()]).nullable(),
+  blockedReason: z.string().nullable(),
+  duplicate: z.boolean(),
+  idempotencyKey: z.string(),
+  startedAt: z.string(),
+  completedAt: z.string(),
+});
+export type MarketingPipelineOutput = z.infer<typeof marketingPipelineOutputSchema>;
+
+export const marketingAgentSummarySchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  shipped: z.boolean(),
+});
+export const marketingAgentsEnvelopeSchema = z.object({
+  agents: z.array(marketingAgentSummarySchema),
+});
+
+export const marketingTrendSchema = z.object({
+  id: z.number(),
+  topic: z.string(),
+  source: z.string(),
+  score: z.string().nullable(),
+  fetchedAt: z.string(),
+});
+export const marketingTrendsEnvelopeSchema = z.object({
+  trends: z.array(marketingTrendSchema),
+});
+
+export const marketingEngagementItemSchema = z.object({
+  messageId: z.string().nullable(),
+  idempotencyKey: z.string(),
+  draftId: z.string().nullable(),
+  publishedAt: z.string(),
+  replyCount: z.number(),
+  viewCount: z.number(),
+});
+export const marketingEngagementSchema = z.object({
+  generatedAt: z.string(),
+  total: z.number(),
+  top: z.array(marketingEngagementItemSchema),
+  lookbackDays: z.number(),
+  pulled: z.number(),
+});
+export type MarketingEngagement = z.infer<typeof marketingEngagementSchema>;
+

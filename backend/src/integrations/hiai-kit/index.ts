@@ -9,28 +9,33 @@
  *   - `capabilities` — generic capability client for `research.general`,
  *     `content.article` and `content.carousel` over the hiai-kit capability
  *     envelope (`POST /api/v1/capabilities/:id/run`);
- *   - `carousel` — job lifecycle methods (`/api/v1/carousel`).
+ *   - `carousel` — job lifecycle methods (`/api/v1/carousel`);
+ *   - `marketing` — daily pipeline + trends + engagement (`/api/v1/marketing`).
  *
  * Errors are normalized `HiaiKitError`s with correlation ids; see errors.ts.
  */
 import { type CapabilityClient, createCapabilityClient } from "./capabilities.js";
 import { type CarouselClient, createCarouselClient } from "./carousel.js";
 import { type HiaiKitClientConfig, hiaiKitConfig } from "./config.js";
+import { createMarketingClient, type MarketingClient } from "./marketing.js";
 
 export interface HiaiKitClient {
   capabilities: CapabilityClient;
   carousel: CarouselClient;
+  marketing: MarketingClient;
 }
 
 export function createHiaiKitClient(config: HiaiKitClientConfig = hiaiKitConfig()): HiaiKitClient {
   return {
     capabilities: createCapabilityClient(config),
     carousel: createCarouselClient(config),
+    marketing: createMarketingClient(config),
   };
 }
 
 export type { CapabilityClient, CapabilityRunOptions } from "./capabilities.js";
 export type { CarouselClient, CarouselCover } from "./carousel.js";
+export type { MarketingClient, MarketingAgentSummary, MarketingTrend } from "./marketing.js";
 export type { HiaiKitClientConfig } from "./config.js";
 export { hiaiKitConfig, hiaiKitConfigSummary } from "./config.js";
 export type {
@@ -61,9 +66,13 @@ export type {
   CarouselJobStatus,
   CarouselJobStep,
   CarouselJobSummary,
+  AddBlankSlideResult,
   CreateCarouselInput,
   CreateCarouselResult,
+  EditCoverResult,
   RegenerateSlideResult,
+  SaveSlideJsonResult,
+  SaveSlidePngResult,
   ResearchGeneralInput,
   ResearchReport,
   SerializedCapabilityManifest,
@@ -71,6 +80,9 @@ export type {
   SlideDocumentShape,
   SlideElementShape,
   SlideGradientShape,
+  MarketingPipelineInput,
+  MarketingPipelineOutput,
+  MarketingEngagement,
 } from "./schemas.js";
 export {
   CAROUSEL_JOB_ID_PATTERN,

@@ -48,8 +48,10 @@ import type {
 } from "../../integrations/hiai-kit/index.js";
 import { HiaiKitError } from "../../integrations/hiai-kit/index.js";
 import {
+  addCarouselBlankSlide,
   type CarouselAdapter,
   createCarousel,
+  editCarouselCover,
   getCarousel,
   getCarouselJob,
   getCarouselRevisions,
@@ -187,12 +189,29 @@ function fakeAdapter(overrides: Partial<CarouselAdapter> = {}) {
     height: 1350,
     background: { color: "#000" },
   }));
-  const adapter = { createJob, regenerateSlide, getJob, getSlideJson, ...overrides };
+  const saveSlideJson = vi.fn(async () => ({ ok: true as const, json: validSlideDoc }));
+  const addBlankSlide = vi.fn(async () => ({ slideNumber: 3, json: validSlideDoc }));
+  const editCover = vi.fn(async () => ({
+    coverImagePath: "cover.png",
+    updatedAt: "2026-01-02T00:00:00.000Z",
+  }));
+  const adapter = {
+    createJob,
+    regenerateSlide,
+    getJob,
+    getSlideJson,
+    saveSlideJson,
+    addBlankSlide,
+    editCover,
+    ...overrides,
+  };
   return adapter as CarouselAdapter & {
     createJob: typeof createJob;
     regenerateSlide: typeof regenerateSlide;
     getJob: typeof getJob;
     getSlideJson: typeof getSlideJson;
+    addBlankSlide: typeof addBlankSlide;
+    editCover: typeof editCover;
   };
 }
 
@@ -487,7 +506,10 @@ describe("saveCarouselSlideDocument", () => {
 
     const result = await saveCarouselSlideDocument(ctxA, item.id, 2, validSlideDoc, {
       db: db as any,
+      adapter,
     });
+
+    expect(adapter.saveSlideJson).toHaveBeenCalledWith(JOB_ID, 2, expect.objectContaining({ version: 1 }));
 
     expect(result.slide).toMatchObject({ title: "Pricing", content: "Free vs paid" });
     expect(result.slide.doc).toEqual(validSlideDoc);
@@ -520,7 +542,7 @@ describe("saveCarouselSlideDocument", () => {
 
     const garbage = { foo: "bar" }; // missing width/height/elements
     try {
-      await saveCarouselSlideDocument(ctxA, item.id, 1, garbage, { db: db as any });
+      await saveCarouselSlideDocument(ctxA, item.id, 1, garbage, { db: db as any, adapter });
       expect.unreachable("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(ValidationError);
@@ -549,7 +571,7 @@ describe("saveCarouselSlideDocument", () => {
         item.id,
         1,
         { ...validSlideDoc, elements: [{ ...validSlideDoc.elements[0], type: "unknown" }] },
-        { db: db as any }
+        { db: db as any, adapter }
       )
     ).rejects.toThrow(ValidationError);
     await expect(
@@ -558,7 +580,7 @@ describe("saveCarouselSlideDocument", () => {
         item.id,
         1,
         { width: 1080, height: 1350, elements: [{ type: "text", x: 1, y: 2 }] }, // no id
-        { db: db as any }
+        { db: db as any, adapter }
       )
     ).rejects.toThrow(ValidationError);
 
@@ -572,10 +594,10 @@ describe("saveCarouselSlideDocument", () => {
     const { item } = await createCarousel(ctxA, input, { db: db as any, adapter });
 
     await expect(
-      saveCarouselSlideDocument(ctxA, item.id, 0, validSlideDoc, { db: db as any })
+      saveCarouselSlideDocument(ctxA, item.id, 0, validSlideDoc, { db: db as any, adapter })
     ).rejects.toThrow(ValidationError);
     await expect(
-      saveCarouselSlideDocument(ctxA, item.id, 3, validSlideDoc, { db: db as any })
+      saveCarouselSlideDocument(ctxA, item.id, 3, validSlideDoc, { db: db as any, adapter })
     ).rejects.toThrow(ValidationError);
 
     const revisions = await getCarouselRevisions(ctxA, item.id, { db: db as any });
@@ -588,12 +610,97 @@ describe("saveCarouselSlideDocument", () => {
     const { item } = await createCarousel(ctxA, input, { db: db as any, adapter });
 
     await expect(
-      saveCarouselSlideDocument(ctxB, item.id, 1, validSlideDoc, { db: db as any })
+      saveCarouselSlideDocument(ctxB, item.id, 1, validSlideDoc, { db: db as any, adapter })
     ).rejects.toThrow(NotFoundError);
 
     const revisions = await getCarouselRevisions(ctxA, item.id, { db: db as any });
     expect(revisions).toHaveLength(1);
     const fetched = await getCarousel(ctxA, item.id, { db: db as any });
     expect(fetched.bodyJson.slides[0].doc).toBeUndefined();
+  });
+});
+
+describe("addCarouselBlankSlide", () => {
+  it("appends a kit blank slide and a revision", async () => {
+    const db = makeFakeDb();
+    const adapter = fakeAdapter();
+    const { item } = await createCarousel(ctxA, input, { db: db as any, adapter });
+
+    const result = await addCarouselBlankSlide(ctxA, item.id, { db: db as any, adapter });
+    expect(adapter.addBlankSlide).toHaveBeenCalledWith(JOB_ID);
+    expect(result.slideNumber).toBe(3);
+    expect(result.slide).toMatchObject({ title: "New Slide", doc: validSlideDoc });
+    expect(result.item.bodyJson.slides).toHaveLength(3);
+
+    const revisions = await getCarouselRevisions(ctxA, item.id, { db: db as any });
+    expect(revisions).toHaveLength(2);
+    expect(revisions[0].changeNote).toBe("Blank slide 3 added");
+    expect(revisions[1].bodyJson.slides).toHaveLength(2);
+  });
+
+  it("rejects at the slide cap without calling kit", async () => {
+    const db = makeFakeDb();
+    const adapter = fakeAdapter();
+    const tenSlides = Array.from({ length: 10 }, (_, i) => ({
+      title: `S${i + 1}`,
+      content: "c",
+    }));
+    const { item } = await createCarousel(
+      ctxA,
+      { ...input, slides: tenSlides },
+      { db: db as any, adapter }
+    );
+
+    await expect(addCarouselBlankSlide(ctxA, item.id, { db: db as any, adapter })).rejects.toThrow(
+      ValidationError
+    );
+    expect(adapter.addBlankSlide).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for another tenant", async () => {
+    const db = makeFakeDb();
+    const adapter = fakeAdapter();
+    const { item } = await createCarousel(ctxA, input, { db: db as any, adapter });
+    await expect(addCarouselBlankSlide(ctxB, item.id, { db: db as any, adapter })).rejects.toThrow(
+      NotFoundError
+    );
+    expect(adapter.addBlankSlide).not.toHaveBeenCalled();
+  });
+});
+
+describe("editCarouselCover", () => {
+  it("proxies a cover edit through the adapter", async () => {
+    const db = makeFakeDb();
+    const adapter = fakeAdapter();
+    const { item } = await createCarousel(ctxA, input, { db: db as any, adapter });
+
+    const result = await editCarouselCover(ctxA, item.id, "make the sky darker", {
+      db: db as any,
+      adapter,
+    });
+    expect(adapter.editCover).toHaveBeenCalledWith(JOB_ID, "make the sky darker");
+    expect(result.coverImagePath).toBe("cover.png");
+    expect(result.item.id).toBe(item.id);
+  });
+
+  it("rejects an empty description without calling kit", async () => {
+    const db = makeFakeDb();
+    const adapter = fakeAdapter();
+    const { item } = await createCarousel(ctxA, input, { db: db as any, adapter });
+
+    await expect(editCarouselCover(ctxA, item.id, "   ", { db: db as any, adapter })).rejects.toThrow(
+      ValidationError
+    );
+    expect(adapter.editCover).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for another tenant", async () => {
+    const db = makeFakeDb();
+    const adapter = fakeAdapter();
+    const { item } = await createCarousel(ctxA, input, { db: db as any, adapter });
+    await expect(
+      editCarouselCover(ctxB, item.id, "darker", { db: db as any, adapter })
+    ).rejects.toThrow(NotFoundError);
+    expect(adapter.editCover).not.toHaveBeenCalled();
   });
 });

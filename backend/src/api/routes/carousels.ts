@@ -21,15 +21,20 @@ import { z } from "zod";
 import { isHiaiKitError, toHiaiKitErrorEnvelope } from "../../integrations/hiai-kit/index.js";
 import { approveContent, requestChanges, submitForReview } from "../../services/approval.js";
 import {
+  addCarouselBlankSlide,
   createCarousel,
+  editCarouselCover,
   getCarousel,
+  getCarouselCover,
   getCarouselJob,
   getCarouselRevisions,
   getCarouselSlideJson,
+  getCarouselSlidePng,
   listCarousels,
   regenerateCarousel,
   regenerateSlide,
   saveCarouselSlideDocument,
+  uploadCarouselSlidePng,
 } from "../../services/carousels.js";
 import { contentSourceForContext } from "../../services/content.js";
 import { handleServiceError, ValidationError } from "../../services/errors.js";
@@ -99,6 +104,32 @@ export const carouselsRoutes = new Elysia({ prefix: "/api/v1/carousels" })
     try {
       const job = await getCarouselJob({ tenantId, userId }, params.id);
       return { job };
+    } catch (err) {
+      return handleServiceOrAdapterError(set, err);
+    }
+  })
+  // Sharp-written cover PNG (proxied; 404 if the job has no cover yet)
+  .get("/:id/cover", async ({ params, tenantId, userId, set }: any) => {
+    try {
+      const cover = await getCarouselCover({ tenantId, userId }, params.id);
+      return new Response(cover.data, {
+        headers: { "Content-Type": cover.contentType || "image/png" },
+      });
+    } catch (err) {
+      return handleServiceOrAdapterError(set, err);
+    }
+  })
+  // Client-exported slide PNG (exists only after Konva upload)
+  .get("/:id/slides/:index/png", async ({ params, tenantId, userId, set }: any) => {
+    try {
+      const parsed = slideIndexSchema.safeParse(params);
+      if (!parsed.success) {
+        throw new ValidationError("Validation failed", parsed.error.flatten());
+      }
+      const png = await getCarouselSlidePng({ tenantId, userId }, params.id, parsed.data.index);
+      return new Response(png.data, {
+        headers: { "Content-Type": png.contentType || "image/png" },
+      });
     } catch (err) {
       return handleServiceOrAdapterError(set, err);
     }
@@ -188,6 +219,68 @@ export const carouselsRoutes = new Elysia({ prefix: "/api/v1/carousels" })
           body
         );
         return { item: result.item, revision: result.revision, slide: result.slide };
+      } catch (err) {
+        return handleServiceOrAdapterError(set, err);
+      }
+    },
+    { beforeHandle: requireEditor() }
+  )
+  // Append a blank slide (kit writes slide_N.json; product item gets a revision).
+  .post(
+    "/:id/slides/add",
+    async ({ params, tenantId, userId, set }: any) => {
+      try {
+        const result = await addCarouselBlankSlide({ tenantId, userId }, params.id);
+        return {
+          item: result.item,
+          revision: result.revision,
+          slideNumber: result.slideNumber,
+          slide: result.slide,
+        };
+      } catch (err) {
+        return handleServiceOrAdapterError(set, err);
+      }
+    },
+    { beforeHandle: requireEditor() }
+  )
+  // AI-edit the existing cover.png (only when kit already wrote a cover).
+  .post(
+    "/:id/cover/edit",
+    async ({ params, body, tenantId, userId, set }: any) => {
+      try {
+        const result = await editCarouselCover(
+          { tenantId, userId },
+          params.id,
+          (body as { description?: unknown })?.description
+        );
+        return {
+          item: result.item,
+          coverImagePath: result.coverImagePath,
+          updatedAt: result.updatedAt,
+        };
+      } catch (err) {
+        return handleServiceOrAdapterError(set, err);
+      }
+    },
+    { beforeHandle: requireEditor() }
+  )
+  // Upload a client Konva PNG. The file exists on kit only after this succeeds.
+  .put(
+    "/:id/slides/:index/png",
+    async ({ params, request, tenantId, userId, set }: any) => {
+      try {
+        const parsed = slideIndexSchema.safeParse(params);
+        if (!parsed.success) {
+          throw new ValidationError("Validation failed", parsed.error.flatten());
+        }
+        const bytes = new Uint8Array(await request.arrayBuffer());
+        const result = await uploadCarouselSlidePng(
+          { tenantId, userId },
+          params.id,
+          parsed.data.index,
+          bytes
+        );
+        return { ok: true, fileName: result.fileName };
       } catch (err) {
         return handleServiceOrAdapterError(set, err);
       }
