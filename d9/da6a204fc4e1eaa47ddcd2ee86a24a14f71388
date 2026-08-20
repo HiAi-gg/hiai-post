@@ -1,0 +1,19 @@
+.github/workflows/ci.yml
+  s_33bb548fe49366::t_e61ba53d718167 5,7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d9da6a204fc4e1eaa47ddcd2ee86a24a14f71388",
+  "prompts": {},
+  "sessions": {
+    "s_33bb548fe49366": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e262862c-7147-4552-98cd-4aafd7452a98",
+        "model": "cursor-grok-4.6-medium"
+      },
+      "human_author": "vlgalib <vlgalib@users.noreply.github.com>"
+    }
+  }
+}
