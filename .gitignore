@@ -48,3 +48,8 @@ coverage/
 
 # Claude Code
 .claude/
+
+# Local agent scratch (not for the repo)
+MEMORY.md
+.opencode/
+.commandcode/
