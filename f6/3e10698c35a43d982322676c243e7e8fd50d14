@@ -1,0 +1,241 @@
+backend/src/integrations/hiai-kit/marketing.ts
+  s_c6d29bb314394a::t_8fec2b84443025 1-77
+app/src/lib/canvas/nodes.ts
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-10
+app/src/lib/features/scriptforge/ScriptEditor.svelte
+  s_4142153e48c4d3::t_10154d12b807ad 1-158
+app/src/lib/features/scriptforge/api.ts
+  s_4142153e48c4d3::t_94970b9f39cdc8 37
+  s_4142153e48c4d3::t_72ff9c4ba20cda 110-111
+  s_4142153e48c4d3::t_1337c33d91d5fc 21-22
+  s_4142153e48c4d3::t_b3bc6e4f35c51b 94-95
+  s_4142153e48c4d3::t_515c819d96c653 200-232
+backend/src/integrations/hiai-kit/hiai-kit.test.ts
+  s_c6d29bb314394a::t_f8278393990e75 475-520
+app/src/lib/canvas/exporter.test.ts
+  s_3d5ec0d4f500ba::t_32ca1580fcc4f0 1-10,14-15
+  s_3d5ec0d4f500ba::t_1795901b87db53 11-13
+app/src/lib/components/canvas/InlineTextEditor.svelte
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-13,15-91
+  s_3d5ec0d4f500ba::t_1632a43063409d 14
+app/src/lib/features/scriptforge/PipelineStatus.svelte
+  s_4142153e48c4d3::t_1ffcc72c1e1f47 1-88
+app/src/lib/components/canvas/SlideCanvas.svelte
+  s_3d5ec0d4f500ba::t_910909b56ca078 18
+  s_3d5ec0d4f500ba::t_438416e9eb37c3 31
+  s_3d5ec0d4f500ba::t_7a0929c23179b1 28
+  s_3d5ec0d4f500ba::t_98d791cc654e39 186-191
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-17,19-27,29-30,32-185,192-327
+app/src/lib/features/scriptforge/TopicSelector.svelte
+  s_4142153e48c4d3::t_32aa65fa406931 1-112
+app/src/lib/features/marketing/api.ts
+  s_c6d29bb314394a::t_ba2bbe65e7f2b9 1-63
+app/src/routes/carousels/[id]/+page.svelte
+  s_3d5ec0d4f500ba::t_2c044d5b87b777 1-10,12-14,24-28,31-33,35,37-38,40-42,45-46,55-60,62-63,65,67-68,80,88-93,95-105,118-129,131-133,135-139,142,144-146,148-201,219,221-224,226-227,229-252,254-267,281-282,285,351-352,355,378-385,387-404,406-410,415-423,428-430,436,442-447,457-463,467-469,478,481-489,491-500,564-567
+  s_4d01ad6d0e5549::t_0ac04a26b936ed 11,15-23,29-30,34,36,39,43-44,47-54,61,64,66,69-79,81-87,94,106-117,130,134,140-141,143,147,202-218,220,225,228,253,268-280,283-284,286-350,353-354,356-377,386,405,411-414,424-427,431-435,437-441,448-456,464-466,470-477,479-480,490,501-563,568-615
+app/src/routes/marketing/+page.svelte
+  s_c6d29bb314394a::t_f3f55688115c90 83
+  s_c6d29bb314394a::t_1f57e5f9da938d 1,3-82,84-201
+  s_c6d29bb314394a::t_5f8449e39dfcaf 2
+backend/src/integrations/hiai-kit/http.ts
+  s_3d5ec0d4f500ba::t_e2a0d1456d7471 140-145,149
+  s_3d5ec0d4f500ba::t_08441d7e248d82 26,31-33
+  s_3d5ec0d4f500ba::t_35542c14c3b903 118-122
+app/src/lib/features/scriptforge/CritiquePanel.svelte
+  s_4142153e48c4d3::t_0b47e84a8b3ace 1-135
+backend/src/api/routes/carousels.ts
+  s_3d5ec0d4f500ba::t_495186e231f3a4 267-289
+  s_3d5ec0d4f500ba::t_ed7b5196ecaebe 28,32,37
+  s_3d5ec0d4f500ba::t_666e90a7a5ae98 111-136
+  s_4d01ad6d0e5549::t_8c7d029eb81afe 24,26
+  s_4d01ad6d0e5549::t_d0d1c730ec9850 228-266
+app/src/lib/plugin.ts
+  s_c6d29bb314394a::t_4f58ac97ff1486 87
+app/src/lib/canvas/history.ts
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-61
+backend/src/integrations/hiai-kit/carousel.ts
+  s_4d01ad6d0e5549::t_3fdb5bb368533c 31-34
+  s_4d01ad6d0e5549::t_012edafec9361e 214-240
+  s_4d01ad6d0e5549::t_efe15555a28dc4 77-80
+  s_3d5ec0d4f500ba::t_7a9e2911f8a4b0 35-38
+  s_4d01ad6d0e5549::t_bc664fa0c495fd 4
+  s_3d5ec0d4f500ba::t_f4d22928eb5e34 67-76
+  s_3d5ec0d4f500ba::t_54a9fa18f25640 173-213
+app/src/routes/scripts/+page.svelte
+  s_4142153e48c4d3::t_446792952b1d29 2,24-28,31-32,34,37,39,41,56-59,67-68,71,74-86,88-90,95-97,102,106-108,115,128,133,136,138,142,146-147,149,162-167,171,173,175,179,185,188-189,191,193-194,198-201,203,205-231,235-250,252-265,272-288,295,304-306,352-365,377,381-387,401,407-415,419-422,425-426,428-430,436-443,447,449-461
+app/src/lib/components/canvas/ElementPanel.svelte
+  s_4d01ad6d0e5549::t_93d38ea7a8ac32 10-11,20-21,24
+  s_3d5ec0d4f500ba::t_48be335c1bc024 304,309,345-347,351-353,476,485,512,521,638,651,665,675,678
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-9,12-19,22-23,25-155,201-213,258-261,263-264,266-268,271-272,275-276,279-284,287-288,291-296,299-302,305-307,310-314,317-318,320-324,327-334,337-338,341-344,354-355,374-375,378-379,382-385,387-393,396,398-401,404-410,413,415-421,424-425,427-429,432-438,441,443,445-447,449-455,457-458,461-465,468-474,477-483,486-510,513-519,522-528,530-531,534-542,545-556,558-559,562-570,573-585,587-588,591-599,602-617,622,625,631-634,636,639-645,647-649,652-655,658-659,662-663,666-674,676-677,679-686
+  s_4d01ad6d0e5549::t_f9b65e5b6afedb 156-200
+  s_4d01ad6d0e5549::t_7153dcb4019cc7 626-630
+  s_4d01ad6d0e5549::t_385e156421a8d4 356-373
+  s_3d5ec0d4f500ba::t_6fad762cca9b1d 214,257,262,265,269-270,273-274,277-278,285-286,289-290,297-298,303,308,315-316,319,325-326,335-336,339-340,348-350,376-377,380-381,386,394-395,397,402-403,411-412,414,422-423,426,430-431,439-440,442,444,448,456,459-460,466-467,475,484,511,520,529,532-533,543-544,557,560-561,571-572,586,589-590,600-601,618-621,623-624,635,637,646,650,656-657,660-661,664
+  s_4d01ad6d0e5549::t_9202e271d6a448 215-256
+app/src/lib/features/carousels/viewer.ts
+  s_4d01ad6d0e5549::t_751c3fde3a0b67 1-38
+app/src/lib/features/scriptforge/pipeline-state.test.ts
+  s_4142153e48c4d3::t_8993d3ec6f603e 1-33
+backend/src/api/app.ts
+  s_c6d29bb314394a::t_dd10182e4be992 104
+  s_c6d29bb314394a::t_d9aad1bb5074f4 38
+app/src/lib/features/scriptforge/types.ts
+  s_4142153e48c4d3::t_d43a0653873ed8 1-158
+backend/src/services/carousels.ts
+  s_3d5ec0d4f500ba::t_17b56f0286e418 635-639
+  s_4d01ad6d0e5549::t_e424eb60c2ae7e 71-72
+  s_4d01ad6d0e5549::t_534473deb08b29 35,38
+  s_3d5ec0d4f500ba::t_e0baf512d4d5c5 177-181
+  s_3d5ec0d4f500ba::t_064378d4579b53 67-70
+  s_4d01ad6d0e5549::t_1b3e2aa195c079 726-824
+  s_4d01ad6d0e5549::t_cd6c2d7b3fa12b 182-183
+  s_3d5ec0d4f500ba::t_e16b017f43f597 657-725
+  s_4d01ad6d0e5549::t_83985353b48942 139
+  s_4d01ad6d0e5549::t_37d8e2078812a5 138,140-141
+backend/tests/integration/carousels-routes.test.ts
+  s_3d5ec0d4f500ba::t_379d629531f872 45-47
+  s_4d01ad6d0e5549::t_02915181f5be58 48-49
+  s_3d5ec0d4f500ba::t_8ddb125a34c5d8 303-310
+  s_4d01ad6d0e5549::t_171cfb714bbb85 311-318
+  s_4d01ad6d0e5549::t_25e08dad428ca3 846-904
+app/src/lib/canvas/schema.ts
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-198
+app/src/lib/canvas/renderer.ts
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-574
+backend/src/api/routes/marketing.ts
+  s_c6d29bb314394a::t_96a9fffc6e811c 63-79
+  s_c6d29bb314394a::t_054e46ab570728 1-62
+backend/tests/integration/marketing-routes.test.ts
+  s_c6d29bb314394a::t_d27c5d5be79b4c 1-255
+backend/src/integrations/hiai-kit/index.ts
+  s_c6d29bb314394a::t_7a4bc88137089b 20,25,32
+  s_c6d29bb314394a::t_4cecfb894c6851 12-13
+  s_4d01ad6d0e5549::t_ae08e0db64e359 69,72
+  s_3d5ec0d4f500ba::t_f88f8dba9ac496 74-75
+  s_c6d29bb314394a::t_84e6ce2e0a784f 38
+  s_c6d29bb314394a::t_b6ab7705556fab 83-85
+app/src/lib/canvas/defaults.ts
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-227
+app/src/lib/canvas/exporter.ts
+  s_3d5ec0d4f500ba::t_6802559c4eeee6 77-78
+  s_3d5ec0d4f500ba::t_a575646a0665a2 1-60,63-69,73-74,76,79
+  s_3d5ec0d4f500ba::t_dbe365f679b6fe 70-72,75
+  s_3d5ec0d4f500ba::t_701e92c3e1eadb 61-62
+app/src/routes/carousels/[id]/edit/[slide]/+page.svelte
+  s_3d5ec0d4f500ba::t_1c7700c8ec7193 1-22,24-86,88-140,168-211,217-218,225-274,276-301,304-311
+  s_4d01ad6d0e5549::t_c337978e4e869d 87
+  s_4d01ad6d0e5549::t_bc70f9afc1514d 212-216,219-224
+  s_4d01ad6d0e5549::t_df26fdb9040bdc 275
+  s_4d01ad6d0e5549::t_24695cf45eadb8 141-167
+  s_4d01ad6d0e5549::t_847243e22efb46 23
+  s_4d01ad6d0e5549::t_b2136e505b595c 302-303
+app/src/lib/features/scriptforge/pipeline-state.ts
+  s_4142153e48c4d3::t_ef6c831c85b2fd 60
+  s_4142153e48c4d3::t_9dd9da23834ba7 3-59,61-151
+  s_4142153e48c4d3::t_c4eae26ba32197 1-2
+app/src/lib/canvas/history.test.ts
+  s_3d5ec0d4f500ba::t_012f9f4e7ce1ea 1-61
+app/src/lib/features/carousels/api.ts
+  s_4d01ad6d0e5549::t_55944eae0e70ae 327-345
+  s_3d5ec0d4f500ba::t_6c0d12106c7aab 267-285,291-309
+  s_3d5ec0d4f500ba::t_e1ddb570ec3a53 286-290
+app/src/lib/features/carousels/api.test.ts
+  s_4d01ad6d0e5549::t_23828f9fa2287a 4-5,24,26-27,32,36-37,51,53-54,58,62-64
+  s_4d01ad6d0e5549::t_5baa8e0384703e 2-3,14-23,28-31,35,38-40,43-50,55-57,61,65-67,71-75
+  s_4d01ad6d0e5549::t_5e52e009a78fb9 1,6-13
+  s_4d01ad6d0e5549::t_d23597b3b9121e 25,33-34,41-42,52,59-60,68-70
+backend/tests/integration/production-composition.test.ts
+  s_c6d29bb314394a::t_ebd0cb87c112d4 311-322
+backend/src/__tests__/services/carousels.test.ts
+  s_4d01ad6d0e5549::t_b07303af58faec 193-207
+  s_3d5ec0d4f500ba::t_36e6f10dd0fe71 192
+  s_3d5ec0d4f500ba::t_4443e1662f31ac 574,583
+  s_3d5ec0d4f500ba::t_b169eedaf44d97 597,600
+  s_3d5ec0d4f500ba::t_a70ddee348becc 613
+  s_4d01ad6d0e5549::t_72b6054af6f67a 213-214
+  s_4d01ad6d0e5549::t_dfa98c7bc4e498 622-706
+  s_4d01ad6d0e5549::t_7dd415489b73cf 51,54
+  s_3d5ec0d4f500ba::t_12e8af0d3bc4c0 545
+  s_3d5ec0d4f500ba::t_bcbc0fe73b10bc 509,512
+  s_3d5ec0d4f500ba::t_679d3aed4f45a2 513
+app/src/lib/canvas/types.ts
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-122
+backend/src/integrations/hiai-kit/schemas.ts
+  s_3d5ec0d4f500ba::t_c805be7d8aa4f2 312-323
+  s_4d01ad6d0e5549::t_468617962560d2 324-335
+  s_c6d29bb314394a::t_e7cbb9ab9b1718 505-593
+app/src/lib/features/carousels/viewer.test.ts
+  s_4d01ad6d0e5549::t_feb2df2569d60e 1-45
+app/src/routes/carousels/+page.svelte
+  s_3d5ec0d4f500ba::t_694d0f0b4aed71 94,101-102
+  s_3d5ec0d4f500ba::t_7063a88133abf1 107
+  s_4d01ad6d0e5549::t_c412d28736a1c2 2,24,145-160,162-174,176,179,181-183,185-189,191-202,205-217,219-228,230-237,239-252,254-255,257-263,265-286,295
+  s_3d5ec0d4f500ba::t_7c17972be88a81 41-42
+app/package.json
+  s_3d5ec0d4f500ba::t_8e0918c432bbca 44-46,50
+  s_3d5ec0d4f500ba::t_c0e247c8ae8b33 54-55
+app/src/lib/components/canvas/CanvasToolbar.svelte
+  s_4d01ad6d0e5549::t_48f323a163b061 7
+  s_3d5ec0d4f500ba::t_59b1b1387ebc80 297-298
+  s_4d01ad6d0e5549::t_e502ae37dbb8e4 302-304
+  s_3d5ec0d4f500ba::t_8b055278f56b8d 299-301
+  s_4d01ad6d0e5549::t_f0a318bedfbcc2 160-173
+  s_4d01ad6d0e5549::t_0a20eee054158c 32,34-46
+  s_3d5ec0d4f500ba::t_710fd96bd261f2 20
+  s_4d01ad6d0e5549::t_10d7c5d8f100da 249-261
+  s_3d5ec0d4f500ba::t_09ea94036e9f8a 228
+  s_3d5ec0d4f500ba::t_0ba59689892ab3 24-31,33
+  s_3d5ec0d4f500ba::t_53aac4d79ad70f 1-6,8-19,22-23,47-159,174-223,225-226,230-232,234-248,262-264,266-271,273-277,279-295,305-306
+  s_3d5ec0d4f500ba::t_3a12bc1d344bd5 224,227,229,233,265,272,278,296
+  s_4d01ad6d0e5549::t_39cc692d493234 21
+app/src/lib/features/scriptforge/HistoryDrawer.svelte
+  s_4142153e48c4d3::t_4198ee3496bc0f 49
+  s_4142153e48c4d3::t_97808b0e7b1c3a 172
+  s_4142153e48c4d3::t_312ee11108d348 96
+  s_4142153e48c4d3::t_6c0c44a12aad4d 78
+  s_4142153e48c4d3::t_17ab3cc677daa2 1-48,50-77,79-95,97-171,173
+app/src/lib/canvas/sizes.ts
+  s_3d5ec0d4f500ba::t_1f7f0368e20123 1-19
+bun.lock
+  s_3d5ec0d4f500ba::t_638b0141c227c1 26-28,32,37,109-110,507-510,569-570,599-600,637-640,647-648,733-734,807-808,817-818,877-878,889-890,899-900,935-936,967-970,975-976,983-984,1153,1187-1188,1205-1206,1245-1246,1287-1288,1295-1296,1305-1306,1323-1324,1343-1344,1361-1362,1399-1400,1411-1412,1443-1444,1457-1458,1519-1520,1585-1586,1621-1622,1633-1634,1637-1638
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f63e10698c35a43d982322676c243e7e8fd50d14",
+  "prompts": {},
+  "sessions": {
+    "s_3d5ec0d4f500ba": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "68ae33dc-39b7-4876-9a77-dd288f7eff87",
+        "model": "cursor-grok-4.6-medium"
+      },
+      "human_author": "vlgalib <vlgalib@users.noreply.github.com>"
+    },
+    "s_4142153e48c4d3": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "afdc8aa0-86cd-4859-ba85-94d1f366fe4b",
+        "model": "cursor-grok-4.6-medium"
+      },
+      "human_author": "vlgalib <vlgalib@users.noreply.github.com>"
+    },
+    "s_4d01ad6d0e5549": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6b59572c-11c7-4990-b549-3877612a5f2d",
+        "model": "cursor-grok-4.6-medium"
+      },
+      "human_author": "vlgalib <vlgalib@users.noreply.github.com>"
+    },
+    "s_c6d29bb314394a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "fda2e118-5a0e-4ea0-ac2d-6d31d38f771f",
+        "model": "cursor-grok-4.6-medium"
+      },
+      "human_author": "vlgalib <vlgalib@users.noreply.github.com>"
+    }
+  }
+}
